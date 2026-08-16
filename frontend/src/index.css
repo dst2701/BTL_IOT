@@ -1,0 +1,24 @@
+:root {
+  font-family: 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Tahoma, sans-serif;
+  background: #f9fbff;
+  color: #313640;
+  line-height: 1.35;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+}

@@ -1,0 +1,11 @@
+# Bỏ qua các file cấu hình bí mật
+.env
+
+# Bỏ qua các thư mục chứa thư viện (rất nặng, không cần đẩy lên)
+node_modules/
+__pycache__/
+venv/
+env/
+
+# Bỏ qua các file hệ điều hành sinh ra
+.DS_Store
