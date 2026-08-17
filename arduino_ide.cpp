@@ -4,8 +4,8 @@
 #include <ArduinoJson.h> // Thư viện xử lý JSON
 
 // ================= THÔNG TIN CẤU HÌNH =================
-const char* ssid = "TEN_WIFI_CUA_BAN";         // <-- ĐIỀN TÊN WIFI VÀO ĐÂY
-const char* password = "MAT_KHAU_WIFI";       // <-- ĐIỀN MẬT KHẨU WIFI VÀO ĐÂY
+const char* ssid = "Bin 304";         // <-- ĐIỀN TÊN WIFI VÀO ĐÂY
+const char* password = "0944216688";       // <-- ĐIỀN MẬT KHẨU WIFI VÀO ĐÂY
 
 const char* mqtt_server = "broker.hivemq.com";
 const int mqtt_port = 1883;

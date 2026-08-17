@@ -206,6 +206,8 @@ def get_latest_sensors():
 
 		if data_row:
 			latest[payload_key] = data_row["value"]
+			if latest.get("measured_at") is None:
+				latest["measured_at"] = data_row["measured_at"]
 
 	if all(latest.get(key) is None for key in ("temp", "humidity", "light")) and DEMO_MODE:
 		return _get_mock_latest()

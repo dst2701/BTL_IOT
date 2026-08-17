@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
@@ -48,6 +49,7 @@ class MQTTManager:
 				self.latest_sensor_data["temp"] = payload.get("temp")
 				self.latest_sensor_data["humidity"] = payload.get("humidity")
 				self.latest_sensor_data["light"] = payload.get("light")
+				self.latest_sensor_data["measured_at"] = datetime.now(timezone.utc).isoformat()
 
 			if self._on_sensor_data:
 				self._on_sensor_data(payload)
