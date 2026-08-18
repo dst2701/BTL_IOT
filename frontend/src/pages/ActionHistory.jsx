@@ -27,6 +27,8 @@ function ActionHistory() {
     }
 
     load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [dateFilter, order])
 
   const filtered = useMemo(() => {
@@ -76,6 +78,7 @@ function ActionHistory() {
           <thead>
             <tr>
               <th>Device</th>
+              <th>Action</th>
               <th>Status</th>
               <th>Time</th>
             </tr>
@@ -85,6 +88,11 @@ function ActionHistory() {
               <tr key={item.id}>
                 <td>{item.device_name}</td>
                 <td>{item.action === 'on' ? 'On' : 'Off'}</td>
+                <td>
+                  <span className={`status-badge status-${item.status}`}>
+                    {item.status}
+                  </span>
+                </td>
                 <td>{new Date(item.created_at).toLocaleString()}</td>
               </tr>
             ))}

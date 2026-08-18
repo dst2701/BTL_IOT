@@ -1,6 +1,10 @@
 import os
 from contextlib import contextmanager
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import mysql.connector
 from mysql.connector import pooling
 

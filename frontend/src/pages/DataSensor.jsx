@@ -27,6 +27,8 @@ function DataSensor() {
     }
 
     load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [dateFilter, order])
 
   const filtered = useMemo(() => {

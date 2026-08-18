@@ -1,9 +1,14 @@
 import os
 import random
+import time
 from datetime import date, datetime, timedelta
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -252,8 +257,19 @@ def get_sensor_history(
 	return []
 
 
+def _timeout_pending_action(action_id: int, delay: int = 10):
+	"""Chạy ngầm: sau `delay` giây, nếu record vẫn còn 'pending' thì chuyển sang 'timeout'."""
+	time.sleep(delay)
+	row = fetch_one("SELECT status FROM action_history WHERE id = %s", (action_id,))
+	if row and row["status"] == "pending":
+		execute(
+			"UPDATE action_history SET status = %s WHERE id = %s",
+			("timeout", action_id),
+		)
+
+
 @app.post("/api/devices/control")
-def control_devices(payload: DeviceControlRequest):
+def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundTasks):
 	command = {}
 	if payload.led1 is not None:
 		command["led1"] = payload.led1
@@ -263,46 +279,26 @@ def control_devices(payload: DeviceControlRequest):
 	if not command:
 		raise HTTPException(status_code=400, detail="At least one LED state is required")
 
+	# Ghi DB và lưu lại action_id để đặt timeout
 	for led_key, action in command.items():
 		device_type = DEVICE_KEY_MAP.get(led_key)
 		device_id = _find_device_id(device_type)
 		if device_id is None:
 			continue
 
-		execute(
+		action_id = execute(
 			"INSERT INTO action_history (device_id, action, status) VALUES (%s, %s, %s)",
 			(device_id, action, "pending"),
 		)
+		# Sau 10 giây, nếu phần cứng không phản hồi thì chuyển sang 'timeout'
+		background_tasks.add_task(_timeout_pending_action, action_id)
 
 	published = mqtt_manager.publish_control(command)
-	if not published:
-		if not DEMO_MODE:
-			raise HTTPException(status_code=500, detail="Failed to publish control command")
-
-		for led_key in command.keys():
-			device_type = DEVICE_KEY_MAP.get(led_key)
-			device_id = _find_device_id(device_type)
-			if device_id is None:
-				continue
-
-			action_row = fetch_one(
-				"""
-				SELECT id
-				FROM action_history
-				WHERE device_id = %s
-				ORDER BY created_at DESC
-				LIMIT 1
-				""",
-				(device_id,),
-			)
-			if action_row:
-				execute(
-					"UPDATE action_history SET status = %s WHERE id = %s",
-					("success", action_row["id"]),
-				)
+	if not published and not DEMO_MODE:
+		raise HTTPException(status_code=500, detail="Failed to publish control command")
 
 	return {
-		"message": "Control command published" if published else "Demo mode: command simulated",
+		"message": "Control command published" if published else "Demo mode: command simulated (waiting for device)",
 		"command": command,
 		"mqtt_connected": mqtt_manager.is_connected,
 		"demo_mode": DEMO_MODE,

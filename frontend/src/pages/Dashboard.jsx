@@ -73,7 +73,7 @@ function Dashboard() {
       },
       {
         title: 'Light Sensor',
-        value: latest.light != null ? `${Math.round(latest.light)} lx` : '--',
+        value: latest.light != null ? `${Math.round(latest.light)} (ADC)` : '--',
         className: 'stat-yellow',
         icon: <FaRegLightbulb />,
       },

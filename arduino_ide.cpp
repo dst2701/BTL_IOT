@@ -84,10 +84,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (doc.containsKey("led2")) {
     String led2Status = doc["led2"].as<String>();
     if (led2Status == "on") {
-      digitalWrite(LED2_PIN, HIGH);
+      digitalWrite(LED2_PIN, HIGH); // Bật đèn
       responseDoc["led2"] = "success";
     } else if (led2Status == "off") {
-      digitalWrite(LED2_PIN, LOW);
+      digitalWrite(LED2_PIN, LOW);  // Tắt đèn
       responseDoc["led2"] = "success";
     }
   }
