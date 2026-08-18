@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-08-18 18:4x] — Export CSV + Pagination + Filter panel
+
+### Frontend [`frontend/src/pages/DataSensor.jsx`]
+- **Export CSV:** Nút "Export CSV" tải về file `sensor_data_YYYY-MM-DD.csv` với toàn bộ dữ liệu đang filter (không chỉ trang hiện tại).
+- **Phân trang:** 20 dòng/trang, nút Prev/Next, số trang có ellipsis (`…`), reset về trang 1 khi đổi bất kỳ filter nào.
+- **Filter panel (icon 🔍):** Bấm icon để toggle panel — lọc theo loại cảm biến: All / Temperature / Humidity / Light (dùng field `sensor_type` từ API).
+- Tăng `limit` fetch từ 200 → 500 để phân trang có đủ dữ liệu.
+
+### Frontend [`frontend/src/pages/ActionHistory.jsx`]
+- **Export CSV:** Nút "Export CSV" tải về file `device_history_YYYY-MM-DD.csv`.
+- **Phân trang:** 20 dòng/trang, same logic như DataSensor.
+- **Filter panel (icon 🔍):** Toggle panel với 3 nhóm chip filter:
+  - **Status:** All / Success / Timeout / Pending
+  - **Action:** All / On / Off
+  - **Device:** All / Red Led (LED_RED) / Yellow Led (LED_YELLOW) / Green Led (LED_GREEN)
+- Tăng `limit` fetch từ 200 → 500.
+
+### Frontend [`frontend/src/App.css`]
+- `.filter-box`: thêm `cursor: pointer`, `border: none`, transition — nay là `<button>` thật sự.
+- `.filter-box-active`: highlight xanh `#4f7eff` khi panel đang mở.
+- `.filter-panel`, `.filter-panel-row`, `.filter-panel-label`: layout filter dropdown.
+- `.filter-chip`, `.filter-chip-active`: pill button lọc.
+- `.pagination`, `.page-btn`, `.page-btn-active`, `.page-ellipsis`: điều hướng trang.
+- `.table-info`: text hiển thị tổng số record và trang hiện tại.
+
+---
+
 ## [2026-08-18 18:xx] — Bug fixes: LED state sync + Green Led DB
 
 ### Bug: LED toggle reset khi chuyển trang
