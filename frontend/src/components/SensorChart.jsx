@@ -18,7 +18,7 @@ ChartJS.register(
   Legend,
 )
 
-function SensorChart({ values, label }) {
+function SensorChart({ values, label, title = 'Sensor', color = '#6b7eff' }) {
   const labels = values.map((item) => item.time)
   const dataset = values.map((item) => item.value)
 
@@ -28,8 +28,8 @@ function SensorChart({ values, label }) {
       {
         label,
         data: dataset,
-        borderColor: '#6b7eff',
-        backgroundColor: '#6b7eff',
+        borderColor: color,
+        backgroundColor: color,
         pointRadius: 3,
         pointHoverRadius: 4,
         tension: 0.35,
@@ -66,7 +66,7 @@ function SensorChart({ values, label }) {
 
   return (
     <div className="panel chart-panel">
-      <h3>Temperature</h3>
+      <h3>{title}</h3>
       <div className="chart-wrap">
         <Line data={data} options={options} />
       </div>

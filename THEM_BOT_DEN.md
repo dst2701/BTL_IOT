@@ -54,6 +54,12 @@ if (doc.containsKey("led3")) {
 
 Backend tra cứu đèn bằng `SELECT id FROM devices WHERE type = 'LED_GREEN'`. Nếu không có row → bỏ qua hoàn toàn.
 
+> **⚠️ Lưu ý:** File `.sql` trong project chỉ là **bản dump cũ**, không tự cập nhật khi bạn chạy SQL thủ công. Hãy **xác nhận INSERT đã được thực thi thành công** bằng cách chạy:
+> ```sql
+> SELECT * FROM devices;
+> ```
+> Nếu không thấy Green Led trong kết quả, INSERT chưa được thực hiện.
+
 Chạy lệnh SQL để thêm thiết bị mới:
 ```sql
 INSERT INTO devices (name, type) VALUES ('Green Led', 'LED_GREEN');
@@ -63,7 +69,14 @@ INSERT INTO devices (name, type) VALUES ('Green Led', 'LED_GREEN');
 
 ### Bước 4 — Backend [`backend/main.py`](file:///d:/BTL_IOT/backend/main.py)
 
-**4a. Thêm vào Pydantic model** (khoảng dòng 15):
+**4a. Thêm vào Pydantic model** (khoảng dòng 15): ⚠️ **HAY BỊ BỎ QUA NHẤT**
+
+> **Nếu quên bước này:** backend sẽ báo lỗi ngay khi bấm công tắc:
+> ```
+> AttributeError: 'DeviceControlRequest' object has no attribute 'led3'
+> ```
+> Lỗi này xảy ra vì `control_devices()` đã xử lý `payload.led3` nhưng model chưa khai báo field đó.
+
 ```python
 class DeviceControlRequest(BaseModel):
     led1: Literal["on", "off"] | None = None

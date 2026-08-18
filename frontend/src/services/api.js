@@ -30,4 +30,9 @@ export async function fetchSystemStatus() {
   return data
 }
 
+export async function fetchDeviceStatus() {
+  const { data } = await api.get('/api/devices/status')
+  return data
+}
+
 export default api

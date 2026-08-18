@@ -4,34 +4,47 @@ import { IoWaterOutline } from 'react-icons/io5'
 import SensorChart from '../components/SensorChart'
 import {
   controlDevices,
+  fetchDeviceStatus,
   fetchLatestSensors,
   fetchSensorHistory,
   fetchSystemStatus,
 } from '../services/api'
 
+// Tên hiển thị trên UI cho từng LED key
+const LED_LABELS = {
+  led1: 'Red Led',
+  led2: 'Yellow Led',
+  led3: 'Green Led',
+}
+
 function Dashboard() {
   const [latest, setLatest] = useState({ temp: null, humidity: null, light: null })
-  const [ledState, setLedState] = useState({ led1: false, led2: false, led3: true })
-  const [series, setSeries] = useState([])
+  const [ledState, setLedState] = useState({ led1: false, led2: false, led3: false })
+  const [tempSeries, setTempSeries] = useState([])
+  const [humiditySeries, setHumiditySeries] = useState([])
+  const [lightSeries, setLightSeries] = useState([])
   const [systemStatus, setSystemStatus] = useState({ mqtt_connected: true, demo_mode: false })
 
   useEffect(() => {
+    const toSeries = (data) =>
+      [...data].reverse().map((item) => ({
+        value: Number(item.value),
+        time: new Date(item.measured_at).getHours().toString().padStart(2, '0'),
+      }))
+
     const load = async () => {
       try {
-        const [latestData, historyData] = await Promise.all([
+        const [latestData, tempHistory, humidityHistory, lightHistory] = await Promise.all([
           fetchLatestSensors(),
           fetchSensorHistory({ sensor_id: 1, limit: 7 }),
+          fetchSensorHistory({ sensor_id: 2, limit: 7 }),
+          fetchSensorHistory({ sensor_id: 3, limit: 7 }),
         ])
 
         setLatest(latestData)
-        setSeries(
-          [...historyData]
-            .reverse()
-            .map((item) => ({
-              value: Number(item.value),
-              time: new Date(item.measured_at).getHours().toString().padStart(2, '0'),
-            })),
-        )
+        setTempSeries(toSeries(tempHistory))
+        setHumiditySeries(toSeries(humidityHistory))
+        setLightSeries(toSeries(lightHistory))
       } catch (error) {
         console.error(error)
       }
@@ -46,8 +59,19 @@ function Dashboard() {
       }
     }
 
+    const loadDeviceStatus = async () => {
+      try {
+        const status = await fetchDeviceStatus()
+        // Merge với default false cho các key chưa có lịch sử
+        setLedState((prev) => ({ ...prev, ...status }))
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
     load()
     loadStatus()
+    loadDeviceStatus()
     const timer = setInterval(load, 5000)
     const statusTimer = setInterval(loadStatus, 7000)
     return () => {
@@ -82,7 +106,7 @@ function Dashboard() {
   )
 
   const handleToggle = async (key) => {
-    if (!['led1', 'led2'].includes(key)) {
+    if (!['led1', 'led2', 'led3'].includes(key)) {
       setLedState((prev) => ({ ...prev, [key]: !prev[key] }))
       return
     }
@@ -126,7 +150,7 @@ function Dashboard() {
       <div className="toggle-grid">
         {Object.entries(ledState).map(([key, value]) => (
           <article key={key} className="panel toggle-card">
-            <span>{key}</span>
+            <span>{LED_LABELS[key] || key}</span>
             <button
               type="button"
               className={value ? 'switch switch-on' : 'switch'}
@@ -138,7 +162,24 @@ function Dashboard() {
         ))}
       </div>
 
-      <SensorChart values={series} label="Temperature (degC)" />
+      <SensorChart
+        values={tempSeries}
+        label="Temperature (degC)"
+        title="Temperature"
+        color="#ff6b6b"
+      />
+      <SensorChart
+        values={humiditySeries}
+        label="Humidity (%)"
+        title="Humidity"
+        color="#4ecdc4"
+      />
+      <SensorChart
+        values={lightSeries}
+        label="Light (ADC)"
+        title="Light"
+        color="#ffd93d"
+      />
     </section>
   )
 }

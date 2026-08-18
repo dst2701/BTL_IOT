@@ -19,6 +19,7 @@ from mqtt_client import MQTTManager
 class DeviceControlRequest(BaseModel):
 	led1: Literal["on", "off"] | None = None
 	led2: Literal["on", "off"] | None = None
+	led3: Literal["on", "off"] | None = None
 
 
 app = FastAPI(title="BTL IoT API")
@@ -39,6 +40,7 @@ SENSOR_TYPE_MAP = {
 DEVICE_KEY_MAP = {
 	"led1": "LED_RED",
 	"led2": "LED_YELLOW",
+	"led3": "LED_GREEN",
 }
 
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() in ("1", "true", "yes")
@@ -268,6 +270,33 @@ def _timeout_pending_action(action_id: int, delay: int = 10):
 		)
 
 
+@app.get("/api/devices/status")
+def get_device_status():
+	"""Trả về trạng thái LED hiện tại dựa trên action cuối cùng thành công."""
+	rows = fetch_all("""
+		SELECT d.type, ah.action
+		FROM action_history ah
+		JOIN devices d ON ah.device_id = d.id
+		WHERE ah.status = 'success'
+		AND ah.id IN (
+			SELECT MAX(id) FROM action_history
+			WHERE status = 'success'
+			GROUP BY device_id
+		)
+	""")
+
+	# Đảo ngược DEVICE_KEY_MAP: type → key (vd: "LED_RED" → "led1")
+	type_to_key = {v: k for k, v in DEVICE_KEY_MAP.items()}
+
+	result = {}
+	for row in rows:
+		key = type_to_key.get(row["type"])
+		if key:
+			result[key] = row["action"] == "on"
+
+	return result
+
+
 @app.post("/api/devices/control")
 def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundTasks):
 	command = {}
@@ -275,6 +304,8 @@ def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundT
 		command["led1"] = payload.led1
 	if payload.led2 is not None:
 		command["led2"] = payload.led2
+	if payload.led3 is not None:
+		command["led3"] = payload.led3
 
 	if not command:
 		raise HTTPException(status_code=400, detail="At least one LED state is required")

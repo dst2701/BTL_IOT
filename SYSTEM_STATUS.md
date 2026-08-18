@@ -25,8 +25,8 @@
 - Sidebar chuyển trang: Dashboard, Sensor Data, Device History.
 - Dashboard:
   - Card cảm biến có icon nhiệt kế, giọt nước, ánh sáng (đơn vị light hiển thị ADC 0–1023).
-  - Công tắc LED gửi lệnh qua API (led1, led2 thực tế; led3 chỉ là UI demo).
-  - Biểu đồ nhiệt độ (react-chartjs-2).
+  - Công tắc LED với tên tiếng Anh: Red Led (D1), Yellow Led (D2), Green Led (D3).
+  - **3 biểu đồ**: Temperature (đỏ), Humidity (xanh ngọc), Light (vàng) — mỗi cái fetch riêng sensor history.
   - Tự động refresh dữ liệu mỗi 5 giây.
   - Banner báo đang chạy demo mode khi MQTT offline.
 - Sensor Data:
@@ -44,13 +44,14 @@
 | LDR Quang trở (Ánh sáng) | A0 | ✅ Hoạt động |
 | LED Đỏ (Red Led) | D1 | ✅ Hoạt động |
 | LED Vàng (Yellow Led) | D2 | ✅ Hoạt động |
+| LED Xanh lá (Green Led) | D3 | ✅ Hoạt động |
 
 ### Ghi chú phần cứng
 - LED dùng logic **active-high**: `HIGH` = bật, `LOW` = tắt.
-- LED mắc theo sơ đồ: `D1/D2 → 220Ω → anode (chân dài) → cathode (chân ngắn) → GND`.
+- LED mắc theo sơ đồ: `D1/D2/D3 → 220Ω → anode (chân dài) → cathode (chân ngắn) → GND`.
 - LDR mắc: `3.3V → LDR → A0 → 10kΩ → GND` (giá trị ADC tăng khi sáng hơn).
 - Giá trị LDR bão hoà ~1024 trong điều kiện phòng có đèn, phân biệt tốt sáng/tối.
-- Tên thiết bị trong DB: `Red Led` (LED_RED) và `Yellow Led` (LED_YELLOW).
+- Tên thiết bị trong DB: `Red Led` (LED_RED), `Yellow Led` (LED_YELLOW), `Green Led` (LED_GREEN).
 
 ## 6) Biến môi trường
 ### Backend (.env)
