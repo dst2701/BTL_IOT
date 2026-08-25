@@ -1,3 +1,70 @@
+/* ── Toast notifications ── */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  min-width: 280px;
+  max-width: 380px;
+  box-shadow: 0 8px 28px rgba(30, 40, 70, 0.18);
+  animation: toast-slide-in 0.28s ease;
+  pointer-events: all;
+  border-left: 4px solid transparent;
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.toast-warning {
+  background: #fffbf0;
+  border-left-color: #f59e0b;
+  color: #78350f;
+}
+
+.toast-error {
+  background: #fff5f5;
+  border-left-color: #ef4444;
+  color: #7f1d1d;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.toast-dismiss {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.5;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.toast-dismiss:hover {
+  opacity: 1;
+}
+
+/* ─────────────────────────────────────── */
 .app-shell {
   display: grid;
   grid-template-columns: 270px 1fr;

@@ -2,6 +2,23 @@
 
 ---
 
+## [2026-08-25] — Toast notifications: sensor & LED hardware warning
+
+### Frontend [`frontend/src/pages/Dashboard.jsx`]
+- Thêm hệ thống toast notification (slide-in từ phải, tự dismiss sau 5s, bấm × để đóng).
+- **Sensor warning:** Khi `mqtt_connected === false`, show toast `"Sensor hardware not detected — showing last recorded data"` (chỉ show 1 lần, reset khi reconnect, dùng `useRef` để tránh duplicate).
+- **LED warning:** Sau `controlDevices()`, nếu response trả `mqtt_connected: false` → setTimeout 10.5s → show toast `"[Device Name] is not responding"` (khớp với backend timeout 10s).
+- **API error:** Nếu `controlDevices()` throw exception → rollback UI + show toast `"Failed to send command to [Device Name]"` (type `error`).
+- Dùng `useCallback` để memoize `showToast` / `dismissToast`, đưa vào `useEffect` dependency array.
+
+### Frontend [`frontend/src/App.css`]
+- Thêm `.toast-container`: fixed top-right, z-index 9999, flex-column, pointer-events none.
+- Thêm `.toast`: slide-in animation 0.28s, border-left 4px, min-width 280px.
+- Thêm `.toast-warning` (nền vàng nhạt, viền amber) và `.toast-error` (nền đỏ nhạt, viền red).
+- Thêm `.toast-dismiss`: nút × để đóng thủ công.
+
+---
+
 ## [2026-08-25] — Dashboard: Biểu đồ dropdown thay 3 biểu đồ riêng lẻ
 
 ### Frontend [`frontend/src/pages/Dashboard.jsx`]

@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaRegLightbulb, FaTemperatureHigh } from 'react-icons/fa'
 import { IoWaterOutline } from 'react-icons/io5'
 import SensorChart from '../components/SensorChart'
+import { useToast } from '../context/ToastContext'
 import {
   controlDevices,
+  fetchActionHistory,
   fetchDeviceStatus,
   fetchLatestSensors,
   fetchSensorHistory,
   fetchSystemStatus,
 } from '../services/api'
 
-// Tên hiển thị trên UI cho từng LED key
 const LED_LABELS = {
   led1: 'Red Led',
   led2: 'Yellow Led',
@@ -24,6 +25,8 @@ const CHART_OPTIONS = [
 ]
 
 function Dashboard() {
+  const showToast = useToast()
+
   const [latest, setLatest] = useState({ temp: null, humidity: null, light: null })
   const [ledState, setLedState] = useState({ led1: false, led2: false, led3: false })
   const [tempSeries, setTempSeries] = useState([])
@@ -32,6 +35,12 @@ function Dashboard() {
   const [systemStatus, setSystemStatus] = useState({ mqtt_connected: true, demo_mode: false })
   const [selectedChart, setSelectedChart] = useState('temp')
 
+  // Tránh show duplicate sensor warning
+  const sensorWarningRef = useRef(false)
+  // Set theo dõi các LED đang chờ check timeout (tránh duplicate toast)
+  const pendingToastRef = useRef(new Set())
+
+  // ── Data fetching ────────────────────────────────────────────
   useEffect(() => {
     const toSeries = (data) =>
       [...data].reverse().map((item) => ({
@@ -52,6 +61,20 @@ function Dashboard() {
         setTempSeries(toSeries(tempHistory))
         setHumiditySeries(toSeries(humidityHistory))
         setLightSeries(toSeries(lightHistory))
+
+        // Phát hiện hardware offline: measured_at cũ hơn 30 giây
+        if (latestData.measured_at && !sensorWarningRef.current) {
+          const ageSeconds = (Date.now() - new Date(latestData.measured_at).getTime()) / 1000
+          if (ageSeconds > 30) {
+            sensorWarningRef.current = true
+            showToast('Sensor hardware not detected — showing last recorded data', 'warning')
+          }
+        }
+        // Reset khi có dữ liệu mới (hardware reconnect)
+        if (latestData.measured_at) {
+          const ageSeconds = (Date.now() - new Date(latestData.measured_at).getTime()) / 1000
+          if (ageSeconds <= 30) sensorWarningRef.current = false
+        }
       } catch (error) {
         console.error(error)
       }
@@ -61,6 +84,12 @@ function Dashboard() {
       try {
         const status = await fetchSystemStatus()
         setSystemStatus(status)
+        // Fallback: nếu MQTT không kết nối được broker
+        if (!status.mqtt_connected && !sensorWarningRef.current) {
+          sensorWarningRef.current = true
+          showToast('Sensor hardware not detected — showing last recorded data', 'warning')
+        }
+        if (status.mqtt_connected) sensorWarningRef.current = false
       } catch (error) {
         console.error(error)
       }
@@ -69,7 +98,6 @@ function Dashboard() {
     const loadDeviceStatus = async () => {
       try {
         const status = await fetchDeviceStatus()
-        // Merge với default false cho các key chưa có lịch sử
         setLedState((prev) => ({ ...prev, ...status }))
       } catch (error) {
         console.error(error)
@@ -85,8 +113,9 @@ function Dashboard() {
       clearInterval(timer)
       clearInterval(statusTimer)
     }
-  }, [])
+  }, [showToast])
 
+  // ── Sensor cards ─────────────────────────────────────────────
   const cards = useMemo(
     () => [
       {
@@ -97,8 +126,7 @@ function Dashboard() {
       },
       {
         title: 'Humidity Sensor',
-        value:
-          latest.humidity != null ? `${Number(latest.humidity).toFixed(1)}%` : '--',
+        value: latest.humidity != null ? `${Number(latest.humidity).toFixed(1)}%` : '--',
         className: 'stat-green',
         icon: <IoWaterOutline />,
       },
@@ -112,7 +140,8 @@ function Dashboard() {
     [latest],
   )
 
-  const handleToggle = async (key) => {
+  // ── LED toggle ───────────────────────────────────────────────
+  const handleToggle = useCallback(async (key) => {
     if (!['led1', 'led2', 'led3'].includes(key)) {
       setLedState((prev) => ({ ...prev, [key]: !prev[key] }))
       return
@@ -123,11 +152,41 @@ function Dashboard() {
 
     try {
       await controlDevices({ [key]: nextState ? 'on' : 'off' })
+
+      // Nếu LED này đang có check pending rồi thì bỏ qua (tránh duplicate)
+      if (pendingToastRef.current.has(key)) return
+      pendingToastRef.current.add(key)
+
+      // Khớp với backend timeout 5s — check sau 5.5s
+      setTimeout(async () => {
+        pendingToastRef.current.delete(key)
+        try {
+          const history = await fetchActionHistory({ limit: 5 })
+          const ledName = LED_LABELS[key]
+          const timedOut = history.find((item) => {
+            if (item.device_name !== ledName || item.status !== 'timeout') return false
+            const ageSeconds = (Date.now() - new Date(item.created_at).getTime()) / 1000
+            return ageSeconds < 7 // chỉ tính action vừa gửi (< 7 giây)
+          })
+          if (timedOut) {
+            showToast(`${ledName} is not responding`, 'warning')
+          }
+        } catch (e) {
+          // Bỏ qua lỗi khi check history
+        }
+      }, 5500)
     } catch (error) {
+      pendingToastRef.current.delete(key)
+      // Rollback UI khi API lỗi
       setLedState((prev) => ({ ...prev, [key]: !nextState }))
+      showToast(`Failed to send command to ${LED_LABELS[key]}`, 'error')
       console.error(error)
     }
-  }
+  }, [ledState, showToast])
+
+  // ── Render ───────────────────────────────────────────────────
+  const seriesMap = { temp: tempSeries, humidity: humiditySeries, light: lightSeries }
+  const activeChart = CHART_OPTIONS.find((o) => o.key === selectedChart)
 
   return (
     <section>
@@ -169,37 +228,27 @@ function Dashboard() {
         ))}
       </div>
 
-      {(() => {
-        const seriesMap = {
-          temp: tempSeries,
-          humidity: humiditySeries,
-          light: lightSeries,
-        }
-        const opt = CHART_OPTIONS.find((o) => o.key === selectedChart)
-        return (
-          <div className="panel chart-panel">
-            <div className="chart-header">
-              <select
-                className="chart-select"
-                value={selectedChart}
-                onChange={(e) => setSelectedChart(e.target.value)}
-              >
-                {CHART_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <SensorChart
-              values={seriesMap[selectedChart]}
-              label={`${opt.label} (${opt.unit})`}
-              title=""
-              color={opt.color}
-            />
-          </div>
-        )
-      })()}
+      <div className="panel chart-panel">
+        <div className="chart-header">
+          <select
+            className="chart-select"
+            value={selectedChart}
+            onChange={(e) => setSelectedChart(e.target.value)}
+          >
+            {CHART_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <SensorChart
+          values={seriesMap[selectedChart]}
+          label={`${activeChart.label} (${activeChart.unit})`}
+          title=""
+          color={activeChart.color}
+        />
+      </div>
     </section>
   )
 }

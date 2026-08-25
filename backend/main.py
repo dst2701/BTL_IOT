@@ -261,7 +261,7 @@ def get_sensor_history(
 	return []
 
 
-def _timeout_pending_action(action_id: int, delay: int = 10):
+def _timeout_pending_action(action_id: int, delay: int = 5):
 	"""Chạy ngầm: sau `delay` giây, nếu record vẫn còn 'pending' thì chuyển sang 'timeout'."""
 	time.sleep(delay)
 	row = fetch_one("SELECT status FROM action_history WHERE id = %s", (action_id,))

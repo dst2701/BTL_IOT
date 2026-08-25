@@ -112,9 +112,13 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
 - Dashboard:
   - Card cảm biến có icon nhiệt kế, giọt nước, ánh sáng (đơn vị light hiển thị ADC 0–1023).
   - Công tắc LED với tên tiếng Anh: Red Led (D1), Yellow Led (D2), Green Led (D3).
-  - **1 biểu đồ động** với dropdown chọn loại (Temperature 🔴 / Humidity 🟢 / Light 🟡) ở góc trái trên — data 3 loại được fetch song song khi load, chuyển loại không cần gọi API thêm.
+  - **1 biểu đồ động** với dropdown chọn loại (Temperature / Humidity / Light) ở góc trái trên — data 3 loại được fetch song song khi load, chuyển loại không cần gọi API thêm.
   - Tự động refresh dữ liệu mỗi 5 giây.
   - Đồng bộ trạng thái LED khi mount (gọi `GET /api/devices/status`) — toggle không bị reset khi chuyển trang.
+  - **Toast notification:** cảnh báo slide-in top-right, tự dismiss sau 5s:
+    - `"Sensor hardware not detected"` khi `mqtt_connected = false` (show 1 lần, reset khi reconnect).
+    - `"[LED Name] is not responding"` sau 10.5s khi bật/tắt LED mà MQTT không kết nối (khớp backend timeout).
+    - `"Failed to send command"` khi API lỗi (kèm rollback toggle UI).
   - Banner báo đang chạy demo mode khi MQTT offline.
 - Sensor Data:
   - Search text, filter ngày, sắp xếp mới/cũ.
