@@ -225,6 +225,35 @@
   color: #2c313b;
 }
 
+.chart-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chart-select {
+  border: none;
+  outline: none;
+  background: #f0f4ff;
+  border-radius: 12px;
+  padding: 7px 14px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c313b;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6270' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  transition: background 0.15s;
+}
+
+.chart-select:hover {
+  background-color: #e4eaff;
+}
+
 .chart-wrap {
   height: 260px;
 }
@@ -427,6 +456,16 @@ tbody td {
 }
 
 /* ── Status badges (ActionHistory) ── */
+.user-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #3b5bdb;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .status-badge {
   display: inline-block;
   padding: 3px 12px;

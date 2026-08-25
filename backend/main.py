@@ -150,17 +150,19 @@ def _build_mock_sensor_history(limit, sensor_id, day, order):
 
 
 def _build_mock_action_history(limit, day, order):
-	devices = [(1, "Led1", "LED_RED"), (2, "Led2", "LED_YELLOW")]
+	devices = [(1, "Red Led", "LED_RED"), (2, "Yellow Led", "LED_YELLOW"), (3, "Green Led", "LED_GREEN")]
 	base_time = datetime.combine(day, datetime.min.time()) if day else datetime.utcnow()
 	rows = []
 	for idx in range(1, limit + 1):
-		device = devices[idx % 2]
+		device = devices[idx % len(devices)]
 		rows.append(
 			{
 				"id": idx,
 				"device_id": device[0],
 				"device_name": device[1],
 				"device_type": device[2],
+				"user_id": 1,
+				"user_name": "admin",
 				"action": "on" if idx % 2 == 0 else "off",
 				"status": "success",
 				"created_at": (base_time - timedelta(minutes=10 * idx)).isoformat(),
@@ -317,9 +319,10 @@ def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundT
 		if device_id is None:
 			continue
 
+		# user_id = 1 (mặc định demo tài khoản user_id=1 từ bảng users)
 		action_id = execute(
-			"INSERT INTO action_history (device_id, action, status) VALUES (%s, %s, %s)",
-			(device_id, action, "pending"),
+			"INSERT INTO action_history (device_id, user_id, action, status) VALUES (%s, %s, %s, %s)",
+			(device_id, 1, action, "pending"),
 		)
 		# Sau 10 giây, nếu phần cứng không phản hồi thì chuyển sang 'timeout'
 		background_tasks.add_task(_timeout_pending_action, action_id)
@@ -344,9 +347,11 @@ def get_action_history(
 ):
 	query = """
 		SELECT ah.id, ah.device_id, d.name AS device_name, d.type AS device_type,
+			   ah.user_id, COALESCE(u.username, 'admin') AS user_name,
 			   ah.action, ah.status, ah.created_at
 		FROM action_history ah
 		JOIN devices d ON d.id = ah.device_id
+		LEFT JOIN users u ON u.id = ah.user_id
 		WHERE 1 = 1
 	"""
 	params = []

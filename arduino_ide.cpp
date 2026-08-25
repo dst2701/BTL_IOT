@@ -22,7 +22,7 @@ const char* topic_response = "ptit/iot/device_response";
 
 #define LED1_PIN D1      // Đèn LED 1 (Đỏ) cắm vào chân D1
 #define LED2_PIN D2      // Đèn LED 2 (Vàng) cắm vào chân D2
-
+#define LED3_PIN D5      //Led green D3
 // Khởi tạo các đối tượng
 DHT dht(DHTPIN, DHTTYPE);
 WiFiClient espClient;
@@ -92,6 +92,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
   }
 
+  // Xử lý LED 3
+  if (doc.containsKey("led3")) {
+    String led3Status = doc["led3"].as<String>();
+    if (led3Status == "on") {
+      digitalWrite(LED3_PIN, HIGH); // Bật đèn
+      responseDoc["led3"] = "success";
+    } else if (led3Status == "off") {
+      digitalWrite(LED3_PIN, LOW);  // Tắt đèn
+      responseDoc["led3"] = "success";
+    }
+  }
   // Gửi cục JSON phản hồi (VD: {"led1":"success"}) lên Topic response
   char responseBuffer[256];
   serializeJson(responseDoc, responseBuffer);
@@ -126,11 +137,13 @@ void setup() {
   // Cài đặt các chân Pin
   pinMode(LED1_PIN, OUTPUT);
   pinMode(LED2_PIN, OUTPUT);
+  pinMode(LED3_PIN, OUTPUT);
   pinMode(LDR_PIN, INPUT);
   
   // Tắt đèn lúc mới khởi động
   digitalWrite(LED1_PIN, LOW);
   digitalWrite(LED2_PIN, LOW);
+  digitalWrite(LED3_PIN, LOW);
 
   dht.begin();
   setup_wifi();

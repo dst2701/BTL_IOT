@@ -2,6 +2,38 @@
 
 ---
 
+## [2026-08-25] — Dashboard: Biểu đồ dropdown thay 3 biểu đồ riêng lẻ
+
+### Frontend [`frontend/src/pages/Dashboard.jsx`]
+- Thay 3 `SensorChart` riêng biệt (Temperature, Humidity, Light) bằng **1 biểu đồ duy nhất** với dropdown chọn loại.
+- Thêm `CHART_OPTIONS` array chứa metadata của 3 loại biểu đồ (key, label, unit, color).
+- Thêm state `selectedChart` (mặc định `'temp'`), điều khiển biểu đồ nào được hiển thị.
+- Data của cả 3 loại vẫn được fetch song song khi load → chuyển dropdown **không cần gọi API thêm**.
+- Biểu đồ đổi màu tự động theo loại được chọn (đỏ / xanh ngọc / vàng).
+
+### Frontend [`frontend/src/App.css`]
+- Thêm `.chart-header`: flex row chứa dropdown, căn trái trên chart panel.
+- Thêm `.chart-select`: styled dropdown — nền xanh nhạt `#f0f4ff`, bo tròn, font đậm, mũi tên SVG custom, hover effect.
+
+---
+
+## [2026-08-22] — Tích hợp cột User vào Action History
+
+### Database (MySQL)
+- Bổ sung cột khóa ngoại `user_id` vào bảng `action_history` (`CONSTRAINT fk_action_history_users FOREIGN KEY (user_id) REFERENCES users(id)`).
+
+### Backend [`backend/main.py`]
+- `POST /api/devices/control`: Khi ghi bản ghi vào `action_history`, tự động gắn `user_id = 1` (tài khoản demo mặc định).
+- `GET /api/actions/history`: Sử dụng `LEFT JOIN users u ON u.id = ah.user_id` và `COALESCE(u.username, 'admin') AS user_name` để trả về tên người dùng thực hiện thao tác.
+- `_build_mock_action_history`: Bổ sung `user_id: 1` và `user_name: "admin"` khi chạy chế độ `DEMO_MODE`.
+
+### Frontend [`frontend/src/pages/ActionHistory.jsx` & `frontend/src/App.css`]
+- Bảng hiển thị: Thêm cột **User** hiển thị tên người dùng với `.user-badge` nổi bật.
+- Ô tìm kiếm: Hỗ trợ tìm kiếm theo cả tên thiết bị (`device_name`) lẫn tên người dùng (`user_name`).
+- Export CSV: File CSV xuất ra tự động bao gồm cột `User` (`Device,User,Type,Action,Status,Time`).
+
+---
+
 ## [2026-08-18 18:4x] — Export CSV + Pagination + Filter panel
 
 ### Frontend [`frontend/src/pages/DataSensor.jsx`]

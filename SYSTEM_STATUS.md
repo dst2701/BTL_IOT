@@ -7,12 +7,98 @@
 - MQTT: dùng HiveMQ public broker, subscribe/publish theo topic chuẩn.
 - Hardware: **ĐÃ HOẠT ĐỘNG THỰC TẾ** (cập nhật 2026-08-18).
 
-## 2) API hiện có
-- GET /api/sensors/latest
-- GET /api/sensors/history?sensor_id=&date=&order=&limit=
-- POST /api/devices/control
-- GET /api/actions/history?date=&order=&limit=
-- GET /api/system/status
+## 2) Danh sách API và Công dụng chi tiết
+
+Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây dựng bằng FastAPI (`backend/main.py`) và kết nối qua Axios (`frontend/src/services/api.js`):
+
+### 1. `GET /api/sensors/latest`
+- **Công dụng:** Lấy giá trị đo đạc mới nhất của cả 3 cảm biến (Nhiệt độ, Độ ẩm, Cường độ ánh sáng).
+- **Cơ chế hoạt động:** 
+  1. Ưu tiên đọc từ cache bộ nhớ RAM nhận qua MQTT Subscription thời gian thực.
+  2. Nếu cache trống, tự động truy vấn bản ghi mới nhất trong bảng MySQL `data_sensors`.
+  3. Nếu CSDL trống và `DEMO_MODE=true`, trả về dữ liệu giả lập ngẫu nhiên.
+- **Nơi sử dụng:** 3 thẻ Card hiển thị chỉ số cảm biến trên trang **Dashboard** (tự động cập nhật mỗi 5 giây).
+- **Dữ liệu trả về:**
+  ```json
+  {
+    "temp": 28.5,
+    "humidity": 65.0,
+    "light": 720,
+    "measured_at": "2026-08-19T14:30:00Z"
+  }
+  ```
+
+---
+
+### 2. `GET /api/sensors/history`
+- **Công dụng:** Lấy danh sách lịch sử dữ liệu cảm biến đo được theo thời gian, hỗ trợ lọc và sắp xếp.
+- **Tham số Query (Query Parameters):**
+  - `sensor_id` *(int, optional)*: Lọc theo ID cảm biến (1: Nhiệt độ, 2: Độ ẩm, 3: Ánh sáng).
+  - `date` *(date YYYY-MM-DD, optional)*: Lọc dữ liệu theo ngày cụ thể.
+  - `order` *(desc | asc, default="desc")*: Sắp xếp thời gian mới nhất hoặc cũ nhất.
+  - `limit` *(int, 1-1000, default=100)*: Giới hạn số lượng bản ghi trả về.
+- **Nơi sử dụng:** 
+  - **Dashboard**: fetch song song 3 sensor history (sensor_id 1/2/3), dữ liệu được cache sẵn; biểu đồ dropdown chọn loại.
+  - **Sensor Data**: bảng lịch sử (phân trang, lọc nâng cao theo loại cảm biến/ngày, xuất CSV).
+- **Dữ liệu trả về:** Mảng các bản ghi gồm `id`, `sensor_id`, `sensor_name`, `sensor_type`, `value`, `measured_at`.
+
+---
+
+### 3. `POST /api/devices/control`
+- **Công dụng:** Gửi lệnh điều khiển bật/tắt thiết bị ngoại vi (hệ thống đèn LED).
+- **Cơ chế hoạt động:**
+  1. Nhận yêu cầu trạng thái LED từ client.
+  2. Ghi một bản ghi mới vào bảng `action_history` với trạng thái ban đầu là `pending`.
+  3. Publish gói tin JSON điều khiển lên MQTT Topic `ptit/iot/device_control` để gửi tới ESP8266.
+  4. Kích hoạt tác vụ nền (`BackgroundTasks`) hẹn giờ 10 giây: nếu sau 10s không có phản hồi `success` từ phần cứng thì tự động đổi trạng thái bản ghi thành `timeout`.
+- **Request Body (JSON):**
+  ```json
+  {
+    "led1": "on",     // "on" | "off" (Red Led)
+    "led2": "off",    // "on" | "off" (Yellow Led)
+    "led3": "on"      // "on" | "off" (Green Led)
+  }
+  ```
+- **Nơi sử dụng:** Các công tắc (toggle switch) điều khiển LED trên trang **Dashboard**.
+
+---
+
+### 4. `GET /api/devices/status`
+- **Công dụng:** Đồng bộ và lấy trạng thái hoạt động thực tế cuối cùng của từng thiết bị LED từ CSDL.
+- **Cơ chế hoạt động:** Truy vấn bảng `action_history` để lấy bản ghi có `status = 'success'` mới nhất của từng thiết bị (`device_id`).
+- **Nơi sử dụng:** Trang **Dashboard** khi khởi tạo (`mount`) hoặc khi người dùng tải lại trang / chuyển từ trang khác quay về, giúp các công tắc LED giữ đúng vị trí On/Off thực tế thay vì bị reset về mặc định.
+- **Dữ liệu trả về:**
+  ```json
+  {
+    "led1": true,
+    "led2": false,
+    "led3": true
+  }
+  ```
+
+---
+
+### 5. `GET /api/actions/history`
+- **Công dụng:** Lấy danh sách lịch sử tất cả các thao tác điều khiển thiết bị đã diễn ra.
+- **Tham số Query (Query Parameters):**
+  - `date` *(date YYYY-MM-DD, optional)*: Lọc lịch sử theo ngày cụ thể.
+  - `order` *(desc | asc, default="desc")*: Sắp xếp thời gian mới nhất hoặc cũ nhất.
+  - `limit` *(int, 1-1000, default=100)*: Giới hạn số lượng bản ghi trả về.
+- **Nơi sử dụng:** Bảng nhật ký điều khiển trên trang **Device History** (hiển thị badge trạng thái `success`/`timeout`/`pending`, phân trang, bộ lọc đa tiêu chí theo Status/Device/Action/Date, xuất CSV).
+- **Dữ liệu trả về:** Mảng các bản ghi gồm `id`, `device_id`, `device_name`, `device_type`, `user_id`, `user_name`, `action` ("on"/"off"), `status` ("success"/"timeout"/"pending"), `created_at`.
+
+---
+
+### 6. `GET /api/system/status`
+- **Công dụng:** Kiểm tra trạng thái kết nối hạ tầng và cấu hình vận hành của máy chủ Backend.
+- **Dữ liệu trả về:**
+  ```json
+  {
+    "mqtt_connected": true,  // Trạng thái kết nối tới MQTT Broker
+    "demo_mode": false       // Cờ cấu hình chế độ chạy mô phỏng
+  }
+  ```
+- **Nơi sử dụng:** Trang **Dashboard** để hiển thị Banner cảnh báo khi hệ thống đang chạy ở chế độ `Demo Mode` hoặc khi MQTT Broker bị ngắt kết nối.
 
 ## 3) Demo mode (không cần phần cứng)
 - Cấu hình `DEMO_MODE=true` trong backend/.env.
@@ -26,16 +112,18 @@
 - Dashboard:
   - Card cảm biến có icon nhiệt kế, giọt nước, ánh sáng (đơn vị light hiển thị ADC 0–1023).
   - Công tắc LED với tên tiếng Anh: Red Led (D1), Yellow Led (D2), Green Led (D3).
-  - **3 biểu đồ**: Temperature (đỏ), Humidity (xanh ngọc), Light (vàng) — mỗi cái fetch riêng sensor history.
+  - **1 biểu đồ động** với dropdown chọn loại (Temperature 🔴 / Humidity 🟢 / Light 🟡) ở góc trái trên — data 3 loại được fetch song song khi load, chuyển loại không cần gọi API thêm.
   - Tự động refresh dữ liệu mỗi 5 giây.
+  - Đồng bộ trạng thái LED khi mount (gọi `GET /api/devices/status`) — toggle không bị reset khi chuyển trang.
   - Banner báo đang chạy demo mode khi MQTT offline.
 - Sensor Data:
   - Search text, filter ngày, sắp xếp mới/cũ.
   - **Tự động refresh mỗi 5 giây.**
 - Device History:
-  - Search text, filter ngày, sắp xếp mới/cũ.
+  - Search text (theo tên thiết bị, tên user), filter ngày, sắp xếp mới/cũ.
   - **Tự động refresh mỗi 5 giây.**
-  - Cột Action (On/Off) và badge màu cho Status: success (xanh) / timeout (cam) / pending (xám).
+  - Cột Device, **Cột User** (hiển thị tên người dùng thực hiện thao tác), Cột Action (On/Off), Cột Status với badge màu (success / timeout / pending) và Cột Time.
+  - Export CSV bao gồm đầy đủ cột User.
 
 ## 5) Hardware đã xác nhận hoạt động (2026-08-18)
 | Thiết bị | Chân ESP8266 | Trạng thái |

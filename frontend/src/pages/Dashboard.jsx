@@ -17,6 +17,12 @@ const LED_LABELS = {
   led3: 'Green Led',
 }
 
+const CHART_OPTIONS = [
+  { key: 'temp',     label: 'Temperature', unit: 'degC', color: '#ff6b6b' },
+  { key: 'humidity', label: 'Humidity',    unit: '%',    color: '#4ecdc4' },
+  { key: 'light',    label: 'Light',       unit: 'ADC',  color: '#ffd93d' },
+]
+
 function Dashboard() {
   const [latest, setLatest] = useState({ temp: null, humidity: null, light: null })
   const [ledState, setLedState] = useState({ led1: false, led2: false, led3: false })
@@ -24,6 +30,7 @@ function Dashboard() {
   const [humiditySeries, setHumiditySeries] = useState([])
   const [lightSeries, setLightSeries] = useState([])
   const [systemStatus, setSystemStatus] = useState({ mqtt_connected: true, demo_mode: false })
+  const [selectedChart, setSelectedChart] = useState('temp')
 
   useEffect(() => {
     const toSeries = (data) =>
@@ -162,24 +169,37 @@ function Dashboard() {
         ))}
       </div>
 
-      <SensorChart
-        values={tempSeries}
-        label="Temperature (degC)"
-        title="Temperature"
-        color="#ff6b6b"
-      />
-      <SensorChart
-        values={humiditySeries}
-        label="Humidity (%)"
-        title="Humidity"
-        color="#4ecdc4"
-      />
-      <SensorChart
-        values={lightSeries}
-        label="Light (ADC)"
-        title="Light"
-        color="#ffd93d"
-      />
+      {(() => {
+        const seriesMap = {
+          temp: tempSeries,
+          humidity: humiditySeries,
+          light: lightSeries,
+        }
+        const opt = CHART_OPTIONS.find((o) => o.key === selectedChart)
+        return (
+          <div className="panel chart-panel">
+            <div className="chart-header">
+              <select
+                className="chart-select"
+                value={selectedChart}
+                onChange={(e) => setSelectedChart(e.target.value)}
+              >
+                {CHART_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <SensorChart
+              values={seriesMap[selectedChart]}
+              label={`${opt.label} (${opt.unit})`}
+              title=""
+              color={opt.color}
+            />
+          </div>
+        )
+      })()}
     </section>
   )
 }

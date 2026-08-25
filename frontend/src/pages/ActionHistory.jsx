@@ -70,8 +70,10 @@ function ActionHistory() {
     }
     const normalized = query.toLowerCase().trim()
     if (normalized) {
-      result = result.filter((item) =>
-        item.device_name.toLowerCase().includes(normalized),
+      result = result.filter(
+        (item) =>
+          (item.device_name && item.device_name.toLowerCase().includes(normalized)) ||
+          (item.user_name && item.user_name.toLowerCase().includes(normalized)),
       )
     }
     return result
@@ -88,10 +90,11 @@ function ActionHistory() {
   }
 
   const exportCSV = () => {
-    const header = 'Device,Type,Action,Status,Time'
+    const header = 'Device,User,Type,Action,Status,Time'
     const csvRows = filtered.map((item) =>
       [
         `"${item.device_name}"`,
+        `"${item.user_name || 'admin'}"`,
         item.device_type,
         item.action,
         item.status,
@@ -121,7 +124,7 @@ function ActionHistory() {
       <div className="toolbar-row">
         <input
           className="search-input"
-          placeholder="Search device name..."
+          placeholder="Search device name, user..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -204,6 +207,7 @@ function ActionHistory() {
           <thead>
             <tr>
               <th>Device</th>
+              <th>User</th>
               <th>Action</th>
               <th>Status</th>
               <th>Time</th>
@@ -213,6 +217,9 @@ function ActionHistory() {
             {paginated.map((item) => (
               <tr key={item.id}>
                 <td>{item.device_name}</td>
+                <td>
+                  <span className="user-badge">{item.user_name || 'admin'}</span>
+                </td>
                 <td>{item.action === 'on' ? 'On' : 'Off'}</td>
                 <td>
                   <span className={`status-badge status-${item.status}`}>

@@ -13,7 +13,7 @@ Sử dụng 5 bảng:
 2. `sensors`: id, name, type.
 3. `devices`: id, name, type.
 4. `data_sensors`: id, sensor_id, value, measured_at.
-5. `action_history`: id, device_id, action, status, created_at.
+5. `action_history`: id, device_id, user_id, action, status, created_at.
 
 ## 3. Quy chuẩn Giao tiếp MQTT
 - **Topic nhận dữ liệu cảm biến:** `ptit/iot/sensor_data` 
