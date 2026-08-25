@@ -2,6 +2,21 @@
 
 ---
 
+## [2026-08-25] — Trang Profile / About Me & Nút Floating Action Button
+
+### Frontend [`frontend/src/pages/Profile.jsx`]
+- Tạo trang **Profile / About Me** hiển thị thông tin sinh viên: Đinh Sơn Tùng (B23DCCN898), ngành Công nghệ thông tin - Công nghệ phần mềm, Học viện CNBCVT.
+- Bố cục thẩm mỹ: Hero strip gradient đa sắc + polka dots, Card chính nổi bên dưới với Avatar hình chữ nhật (`object-fit: cover`), badge mã sinh viên.
+- 4 thẻ liên kết (Link cards) dạng lưới 2x2 với icon thương hiệu SVG (`react-icons`): GitHub, Figma, Postman, Report (PDF - Coming soon).
+- Tích hợp import ảnh avatar cục bộ từ `frontend/src/assets/avatar.png`.
+
+### Frontend [`frontend/src/App.jsx` & `frontend/src/App.css`]
+- Thêm Route `/profile`.
+- Bổ sung nút Floating Action Button (FAB 👤) cố định ở góc trên bên phải màn hình (`position: fixed`, `z-index: 9998`), hover scale mượt mà, bấm vào chuyển ngay sang trang Profile từ bất kỳ trang nào.
+- Định nghĩa toàn bộ stylesheet cho Profile Page, Hero strip, Card, Avatar box, Link cards và FAB button.
+
+---
+
 ## [2026-08-25] — Toast notifications: sensor & LED hardware warning
 
 ### Frontend [`frontend/src/pages/Dashboard.jsx`]

@@ -128,6 +128,11 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
   - **Tự động refresh mỗi 5 giây.**
   - Cột Device, **Cột User** (hiển thị tên người dùng thực hiện thao tác), Cột Action (On/Off), Cột Status với badge màu (success / timeout / pending) và Cột Time.
   - Export CSV bao gồm đầy đủ cột User.
+- Profile / About Me:
+  - Floating Action Button (👤) cố định góc trên bên phải màn hình trên tất cả các trang để mở Profile.
+  - Giao diện thẩm mỹ: Hero strip gradient đa sắc + polka dots, Card chính nổi bên dưới.
+  - Avatar hình chữ nhật (`object-fit: cover`) tự động crop theo tỉ lệ, kèm badge mã sinh viên.
+  - 4 Link cards với biểu tượng thương hiệu chính thức (`react-icons`): GitHub, Figma, Postman, Report (PDF).
 
 ## 5) Hardware đã xác nhận hoạt động (2026-08-18)
 | Thiết bị | Chân ESP8266 | Trạng thái |
