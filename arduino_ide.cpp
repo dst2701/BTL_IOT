@@ -58,8 +58,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   
   // Phân tích chuỗi JSON nhận được (VD: {"led1": "on", "led2": "off"})
-  DynamicJsonDocument doc(256);
-  DeserializationError error = deserializeJson(doc, messageTemp);
+  DynamicJsonDocument doc(256); //nơi lưu trữ
+  DeserializationError error = deserializeJson(doc, messageTemp); //tách thành key value như doc[led1] = "on"
   
   if (error) {
     Serial.println("Lỗi phân tích JSON!");

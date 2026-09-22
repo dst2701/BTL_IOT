@@ -718,6 +718,32 @@
   color: #303844;
 }
 
+.time-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-input,
+.time-period {
+  min-height: 34px;
+  border: 1px solid #dfe4ed;
+  border-radius: 9px;
+  background: #fff;
+  color: #303844;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.time-input {
+  width: 82px;
+}
+
+.time-period {
+  width: 86px;
+}
+
 .table-panel {
   margin-top: 20px;
   overflow: hidden;

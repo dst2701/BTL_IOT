@@ -173,6 +173,24 @@ def _build_mock_action_history(limit, day, order):
 	return rows
 
 
+def _matches_time_filter(value, hour, minute, second, period):
+	if all(item is None for item in (hour, minute, second, period)):
+		return True
+
+	current = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+	if hour is not None:
+		current_hour = current.hour % 12 or 12
+		if current_hour != hour:
+			return False
+	if period is not None and ("AM" if current.hour < 12 else "PM") != period:
+		return False
+	if minute is not None and current.minute != minute:
+		return False
+	if second is not None and current.second != second:
+		return False
+	return True
+
+
 mqtt_manager = MQTTManager(
 	on_sensor_data=save_sensor_data,
 	on_device_response=update_action_status,
@@ -228,6 +246,10 @@ def get_latest_sensors():
 def get_sensor_history(
 	sensor_id: int | None = Query(default=None),
 	day: date | None = Query(default=None, alias="date"),
+	hour: int | None = Query(default=None, ge=1, le=12),
+	minute: int | None = Query(default=None, ge=0, le=59),
+	second: int | None = Query(default=None, ge=0, le=59),
+	period: Literal["AM", "PM"] | None = Query(default=None),
 	order: Literal["desc", "asc"] = Query(default="desc"),
 	limit: int = Query(default=100, ge=1, le=1000),
 ):
@@ -248,6 +270,32 @@ def get_sensor_history(
 		query += " AND DATE(ds.measured_at) = %s"
 		params.append(day)
 
+	if hour is not None:
+		if period == "AM":
+			query += " AND HOUR(ds.measured_at) = %s"
+			params.append(0 if hour == 12 else hour)
+		elif period == "PM":
+			query += " AND HOUR(ds.measured_at) = %s"
+			params.append(12 if hour == 12 else hour + 12)
+		else:
+			if hour == 12:
+				query += " AND HOUR(ds.measured_at) IN (0, 12)"
+			else:
+				query += " AND HOUR(ds.measured_at) IN (%s, %s)"
+				params.extend((hour, hour + 12))
+
+	if period is not None and hour is None:
+		query += " AND HOUR(ds.measured_at) BETWEEN %s AND %s"
+		params.extend((0, 11) if period == "AM" else (12, 23))
+
+	if minute is not None:
+		query += " AND MINUTE(ds.measured_at) = %s"
+		params.append(minute)
+
+	if second is not None:
+		query += " AND SECOND(ds.measured_at) = %s"
+		params.append(second)
+
 	query += f" ORDER BY ds.measured_at {'DESC' if order == 'desc' else 'ASC'} LIMIT %s"
 	params.append(limit)
 
@@ -256,7 +304,10 @@ def get_sensor_history(
 		return rows
 
 	if DEMO_MODE:
-		return _build_mock_sensor_history(limit, sensor_id, day, order)
+		return [
+			row for row in _build_mock_sensor_history(limit, sensor_id, day, order)
+			if _matches_time_filter(row["measured_at"], hour, minute, second, period)
+		]
 
 	return []
 
@@ -342,6 +393,10 @@ def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundT
 @app.get("/api/actions/history")
 def get_action_history(
 	day: date | None = Query(default=None, alias="date"),
+	hour: int | None = Query(default=None, ge=1, le=12),
+	minute: int | None = Query(default=None, ge=0, le=59),
+	second: int | None = Query(default=None, ge=0, le=59),
+	period: Literal["AM", "PM"] | None = Query(default=None),
 	order: Literal["desc", "asc"] = Query(default="desc"),
 	limit: int = Query(default=100, ge=1, le=1000),
 ):
@@ -360,6 +415,32 @@ def get_action_history(
 		query += " AND DATE(ah.created_at) = %s"
 		params.append(day)
 
+	if hour is not None:
+		if period == "AM":
+			query += " AND HOUR(ah.created_at) = %s"
+			params.append(0 if hour == 12 else hour)
+		elif period == "PM":
+			query += " AND HOUR(ah.created_at) = %s"
+			params.append(12 if hour == 12 else hour + 12)
+		else:
+			if hour == 12:
+				query += " AND HOUR(ah.created_at) IN (0, 12)"
+			else:
+				query += " AND HOUR(ah.created_at) IN (%s, %s)"
+				params.extend((hour, hour + 12))
+
+	if period is not None and hour is None:
+		query += " AND HOUR(ah.created_at) BETWEEN %s AND %s"
+		params.extend((0, 11) if period == "AM" else (12, 23))
+
+	if minute is not None:
+		query += " AND MINUTE(ah.created_at) = %s"
+		params.append(minute)
+
+	if second is not None:
+		query += " AND SECOND(ah.created_at) = %s"
+		params.append(second)
+
 	query += f" ORDER BY ah.created_at {'DESC' if order == 'desc' else 'ASC'} LIMIT %s"
 	params.append(limit)
 
@@ -368,7 +449,10 @@ def get_action_history(
 		return rows
 
 	if DEMO_MODE:
-		return _build_mock_action_history(limit, day, order)
+		return [
+			row for row in _build_mock_action_history(limit, day, order)
+			if _matches_time_filter(row["created_at"], hour, minute, second, period)
+		]
 
 	return []
 

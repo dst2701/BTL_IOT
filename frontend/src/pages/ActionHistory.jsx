@@ -32,6 +32,10 @@ function ActionHistory() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
   const [deviceFilter, setDeviceFilter] = useState('all')
+  const [timeHour, setTimeHour] = useState('')
+  const [timeMinute, setTimeMinute] = useState('')
+  const [timeSecond, setTimeSecond] = useState('')
+  const [timePeriod, setTimePeriod] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [page, setPage] = useState(1)
 
@@ -40,6 +44,10 @@ function ActionHistory() {
       try {
         const params = { limit: 500, order }
         if (dateFilter) params.date = dateFilter
+        if (timeHour) params.hour = Number(timeHour)
+        if (timeMinute) params.minute = Number(timeMinute)
+        if (timeSecond) params.second = Number(timeSecond)
+        if (timePeriod) params.period = timePeriod
         const data = await fetchActionHistory(params)
         setRows(data)
       } catch (error) {
@@ -49,12 +57,12 @@ function ActionHistory() {
     load()
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
-  }, [dateFilter, order])
+  }, [dateFilter, order, timeHour, timeMinute, timeSecond, timePeriod])
 
   // Reset trang về 1 khi đổi filter
   useEffect(
     () => setPage(1),
-    [query, dateFilter, order, statusFilter, actionFilter, deviceFilter],
+    [query, dateFilter, order, statusFilter, actionFilter, deviceFilter, timeHour, timeMinute, timeSecond, timePeriod],
   )
 
   const filtered = useMemo(() => {
@@ -197,6 +205,49 @@ function ActionHistory() {
                   {chip.label}
                 </button>
               ))}
+            </div>
+          </div>
+          <div className="filter-panel-row">
+            <span className="filter-panel-label">Time:</span>
+            <div className="time-filter-row">
+              <input
+                className="time-input"
+                type="number"
+                min="1"
+                max="12"
+                placeholder="Hour"
+                value={timeHour}
+                onChange={(e) => setTimeHour(e.target.value)}
+              />
+              <span>:</span>
+              <input
+                className="time-input"
+                type="number"
+                min="0"
+                max="59"
+                placeholder="Minute"
+                value={timeMinute}
+                onChange={(e) => setTimeMinute(e.target.value)}
+              />
+              <span>:</span>
+              <input
+                className="time-input"
+                type="number"
+                min="0"
+                max="59"
+                placeholder="Second"
+                value={timeSecond}
+                onChange={(e) => setTimeSecond(e.target.value)}
+              />
+              <select
+                className="time-period"
+                value={timePeriod}
+                onChange={(e) => setTimePeriod(e.target.value)}
+              >
+                <option value="">AM/PM</option>
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
             </div>
           </div>
         </div>
