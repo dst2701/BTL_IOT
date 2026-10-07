@@ -10,6 +10,8 @@ class MQTTManager:
 	def __init__(self, on_sensor_data=None, on_device_response=None):
 		self.broker = os.getenv("MQTT_BROKER", "broker.hivemq.com")
 		self.port = int(os.getenv("MQTT_PORT", "1883"))
+		self.username = os.getenv("MQTT_USERNAME")
+		self.password = os.getenv("MQTT_PASSWORD")
 		self.topic_sensor = os.getenv("MQTT_TOPIC_SENSOR", "ptit/iot/sensor_data")
 		self.topic_control = os.getenv("MQTT_TOPIC_CONTROL", "ptit/iot/device_control")
 		self.topic_response = os.getenv("MQTT_TOPIC_RESPONSE", "ptit/iot/device_response")
@@ -27,6 +29,8 @@ class MQTTManager:
 		}
 
 		self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+		if self.username and self.password:
+			self.client.username_pw_set(self.username, self.password)
 		self.client.on_connect = self._on_connect
 		self.client.on_message = self._on_message
 

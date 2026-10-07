@@ -8,6 +8,7 @@ const AVATAR_PLACEHOLDER = avatarSrc
 const INFO = {
   name: 'Đinh Sơn Tùng',
   studentId: 'B23DCCN898',
+  className: 'D23CNPM01',
   major: 'Công nghệ thông tin',
   specialization: 'Công nghệ phần mềm',
   university: 'Học viện Công nghệ Bưu chính Viễn thông',
@@ -89,6 +90,14 @@ function Profile() {
           <h1 className="profile-name">{INFO.name}</h1>
 
           <div className="profile-meta">
+            <div className="profile-meta-row">
+              <span className="profile-meta-label">Student ID</span>
+              <span className="profile-meta-value">{INFO.studentId}</span>
+            </div>
+            <div className="profile-meta-row">
+              <span className="profile-meta-label">Class</span>
+              <span className="profile-meta-value">{INFO.className}</span>
+            </div>
             <div className="profile-meta-row">
               <span className="profile-meta-label">Major</span>
               <span className="profile-meta-value">{INFO.major}</span>

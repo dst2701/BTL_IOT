@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Link } from 'react-router-dom'
+import { FiUser } from 'react-icons/fi'
 import './App.css'
 import Sidebar from './components/Sidebar'
 import { ToastProvider } from './context/ToastContext'
@@ -26,7 +27,7 @@ function App() {
 
       {/* Nút profile nổi cố định — hiện trên mọi trang */}
       <Link to="/profile" className="profile-fab" title="View Profile">
-        👤
+        <FiUser aria-hidden="true" />
       </Link>
     </ToastProvider>
   )

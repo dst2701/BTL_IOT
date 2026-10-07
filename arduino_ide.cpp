@@ -4,11 +4,11 @@
 #include <ArduinoJson.h> // Thư viện xử lý JSON
 
 // ================= THÔNG TIN CẤU HÌNH =================
-const char* ssid = "Bin 304";         // <-- ĐIỀN TÊN WIFI VÀO ĐÂY
-const char* password = "0944216688";       // <-- ĐIỀN MẬT KHẨU WIFI VÀO ĐÂY
+const char* ssid = "LOQ";         // <-- ĐIỀN TÊN WIFI VÀO ĐÂY
+const char* password = "12345678";       // <-- ĐIỀN MẬT KHẨU WIFI VÀO ĐÂY
 
-const char* mqtt_server = "broker.hivemq.com";
-const int mqtt_port = 1883;
+const char* mqtt_server = "192.168.137.1"; //default = "broker.hivemq.com"
+const int mqtt_port = 8888; //default = 1883
 
 // Các Topic MQTT theo đúng PROJECT_CONTEXT.md
 const char* topic_sensor = "ptit/iot/sensor_data";
@@ -58,8 +58,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   
   // Phân tích chuỗi JSON nhận được (VD: {"led1": "on", "led2": "off"})
-  DynamicJsonDocument doc(256); //nơi lưu trữ
-  DeserializationError error = deserializeJson(doc, messageTemp); //tách thành key value như doc[led1] = "on"
+  DynamicJsonDocument doc(256);
+  DeserializationError error = deserializeJson(doc, messageTemp);
   
   if (error) {
     Serial.println("Lỗi phân tích JSON!");
@@ -117,7 +117,7 @@ void reconnect() {
     // Tạo ID ngẫu nhiên cho client
     String clientId = "ESP8266Client-" + String(random(0, 1000));
     
-    if (client.connect(clientId.c_str())) {
+    if (client.connect(clientId.c_str(), "dinhsontung", "b23dccn898")) {
       Serial.println("Thành công!");
       // Đăng ký (Subscribe) để nghe lệnh điều khiển
       client.subscribe(topic_control);

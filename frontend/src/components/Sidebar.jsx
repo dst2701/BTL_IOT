@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
+import { FiActivity, FiCpu, FiGrid, FiHome } from 'react-icons/fi'
 
 const navItems = [
-  { label: 'Home', to: '/dashboard' },
-  { label: 'Sensor Data', to: '/sensor-data' },
-  { label: 'Device History', to: '/device-history' },
+  { label: 'Home', to: '/dashboard', icon: FiHome },
+  { label: 'Sensor Data', to: '/sensor-data', icon: FiActivity },
+  { label: 'Device History', to: '/device-history', icon: FiCpu },
 ]
 
 function Sidebar() {
@@ -11,12 +12,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-head">
         <h2>DASHBOARD</h2>
-        <span className="sidebar-icon">[]</span>
-      </div>
-
-      <div className="sidebar-search">
-        <span>Q</span>
-        <input type="text" placeholder="Search" />
+        <FiGrid className="sidebar-icon" aria-hidden="true" />
       </div>
 
       <nav className="sidebar-nav">
@@ -28,7 +24,7 @@ function Sidebar() {
               isActive ? 'nav-item nav-item-active' : 'nav-item'
             }
           >
-            <span className="nav-dot" />
+            <item.icon className="nav-icon" aria-hidden="true" />
             {item.label}
           </NavLink>
         ))}

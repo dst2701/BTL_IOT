@@ -321,8 +321,6 @@ def _timeout_pending_action(action_id: int, delay: int = 5):
 			"UPDATE action_history SET status = %s WHERE id = %s",
 			("timeout", action_id),
 		)
-
-
 @app.get("/api/devices/status")
 def get_device_status():
 	"""Trả về trạng thái LED hiện tại dựa trên action cuối cùng thành công."""
@@ -375,7 +373,7 @@ def control_devices(payload: DeviceControlRequest, background_tasks: BackgroundT
 			"INSERT INTO action_history (device_id, user_id, action, status) VALUES (%s, %s, %s, %s)",
 			(device_id, 1, action, "pending"),
 		)
-		# Sau 10 giây, nếu phần cứng không phản hồi thì chuyển sang 'timeout'
+		# Sau 5 giây, nếu phần cứng không phản hồi thì chuyển sang 'timeout'.
 		background_tasks.add_task(_timeout_pending_action, action_id)
 
 	published = mqtt_manager.publish_control(command)

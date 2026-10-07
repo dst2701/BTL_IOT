@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaRegLightbulb, FaTemperatureHigh } from 'react-icons/fa'
+import { FiPower } from 'react-icons/fi'
 import { IoWaterOutline } from 'react-icons/io5'
 import SensorChart from '../components/SensorChart'
 import { useToast } from '../context/ToastContext'
@@ -16,6 +17,12 @@ const LED_LABELS = {
   led1: 'Red Led',
   led2: 'Yellow Led',
   led3: 'Green Led',
+}
+
+const LED_ICONS = {
+  led1: <FiPower />,
+  led2: <FiPower />,
+  led3: <FiPower />,
 }
 
 const CHART_OPTIONS = [
@@ -171,7 +178,7 @@ function Dashboard() {
           if (timedOut) {
             showToast(`${ledName} is not responding`, 'warning')
           }
-        } catch (e) {
+        } catch {
           // Bỏ qua lỗi khi check history
         }
       }, 5500)
@@ -192,7 +199,7 @@ function Dashboard() {
     <section>
       <header className="page-title">
         <h1>Home Dashboard</h1>
-        <p>Real time Sensing Data and Devices Control</p>
+        {/* <p>Real time Sensing Data and Devices Control</p> */}
       </header>
 
       {systemStatus.demo_mode && !systemStatus.mqtt_connected && (
@@ -216,7 +223,10 @@ function Dashboard() {
       <div className="toggle-grid">
         {Object.entries(ledState).map(([key, value]) => (
           <article key={key} className="panel toggle-card">
-            <span>{LED_LABELS[key] || key}</span>
+            <span className="led-label">
+              <span className="led-icon">{LED_ICONS[key]}</span>
+              {LED_LABELS[key] || key}
+            </span>
             <button
               type="button"
               className={value ? 'switch switch-on' : 'switch'}

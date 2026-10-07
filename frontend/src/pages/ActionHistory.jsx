@@ -1,52 +1,79 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaFilter } from 'react-icons/fa'
 import { fetchActionHistory } from '../services/api'
-
-const PAGE_SIZE = 20
 
 const STATUS_CHIPS = [
   { value: 'all', label: 'All Status' },
-  { value: 'success', label: '✅ Success' },
-  { value: 'timeout', label: '⏱ Timeout' },
-  { value: 'pending', label: '⏳ Pending' },
+  { value: 'success', label: 'Success' },
+  { value: 'timeout', label: 'Timeout' },
+  { value: 'pending', label: 'Pending' },
 ]
 
 const ACTION_CHIPS = [
   { value: 'all', label: 'All Actions' },
-  { value: 'on', label: '💡 On' },
-  { value: 'off', label: '⬛ Off' },
+  { value: 'on', label: 'On' },
+  { value: 'off', label: 'Off' },
 ]
 
 const DEVICE_CHIPS = [
   { value: 'all', label: 'All Devices' },
-  { value: 'LED_RED', label: '🔴 Red Led' },
-  { value: 'LED_YELLOW', label: '🟡 Yellow Led' },
-  { value: 'LED_GREEN', label: '🟢 Green Led' },
+  { value: 'LED_RED', label: 'Red Led' },
+  { value: 'LED_YELLOW', label: 'Yellow Led' },
+  { value: 'LED_GREEN', label: 'Green Led' },
 ]
+
+function getDateTimeSearchValues(value) {
+  const createdAt = new Date(value)
+  const dateUS = createdAt.toLocaleDateString('en-US')
+  const dateISO = [
+    createdAt.getFullYear(),
+    String(createdAt.getMonth() + 1).padStart(2, '0'),
+    String(createdAt.getDate()).padStart(2, '0'),
+  ].join('-')
+  const time24 = createdAt.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const time12 = createdAt.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+  const time12Short = time12.replace(/^0/, '')
+
+  return [
+    dateUS,
+    dateISO,
+    time24,
+    time24.replace(/^0/, ''),
+    time12,
+    time12Short,
+    `${dateUS}, ${time24}`,
+    `${dateUS}, ${time24.replace(/^0/, '')}`,
+    `${dateUS}, ${time12}`,
+    `${dateUS}, ${time12Short}`,
+  ].map((item) => item.toLowerCase())
+}
 
 function ActionHistory() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
   const [order, setOrder] = useState('desc')
   const [statusFilter, setStatusFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
   const [deviceFilter, setDeviceFilter] = useState('all')
-  const [timeHour, setTimeHour] = useState('')
-  const [timeMinute, setTimeMinute] = useState('')
-  const [timeSecond, setTimeSecond] = useState('')
   const [timePeriod, setTimePeriod] = useState('')
-  const [showFilter, setShowFilter] = useState(false)
   const [page, setPage] = useState(1)
+  const [targetPage, setTargetPage] = useState('')
+  const [pageSizeInput, setPageSizeInput] = useState('10')
+  const pageSize = Math.min(100, Math.max(1, Number(pageSizeInput) || 10))
 
   useEffect(() => {
     const load = async () => {
       try {
         const params = { limit: 500, order }
-        if (dateFilter) params.date = dateFilter
-        if (timeHour) params.hour = Number(timeHour)
-        if (timeMinute) params.minute = Number(timeMinute)
-        if (timeSecond) params.second = Number(timeSecond)
         if (timePeriod) params.period = timePeriod
         const data = await fetchActionHistory(params)
         setRows(data)
@@ -57,12 +84,13 @@ function ActionHistory() {
     load()
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
-  }, [dateFilter, order, timeHour, timeMinute, timeSecond, timePeriod])
+  }, [order, timePeriod])
 
   // Reset trang về 1 khi đổi filter
   useEffect(
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     () => setPage(1),
-    [query, dateFilter, order, statusFilter, actionFilter, deviceFilter, timeHour, timeMinute, timeSecond, timePeriod],
+    [query, order, statusFilter, actionFilter, deviceFilter, timePeriod, pageSizeInput],
   )
 
   const filtered = useMemo(() => {
@@ -81,14 +109,17 @@ function ActionHistory() {
       result = result.filter(
         (item) =>
           (item.device_name && item.device_name.toLowerCase().includes(normalized)) ||
-          (item.user_name && item.user_name.toLowerCase().includes(normalized)),
+          (item.user_name && item.user_name.toLowerCase().includes(normalized)) ||
+          getDateTimeSearchValues(item.created_at).some((value) =>
+            value.includes(normalized),
+          ),
       )
     }
     return result
   }, [rows, query, statusFilter, actionFilter, deviceFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   const visiblePages = () => {
     const delta = 2
@@ -97,6 +128,15 @@ function ActionHistory() {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }
 
+  const goToPage = () => {
+    const requestedPage = Number(targetPage)
+    if (!Number.isInteger(requestedPage) || requestedPage < 1) return
+
+    setPage(Math.min(requestedPage, totalPages))
+    setTargetPage('')
+  }
+
+  // eslint-disable-next-line no-unused-vars
   const exportCSV = () => {
     const header = 'Device,User,Type,Action,Status,Time'
     const csvRows = filtered.map((item) =>
@@ -123,32 +163,18 @@ function ActionHistory() {
   }
 
   return (
-    <section>
+    <section className="history-page">
       <header className="page-title">
         <h1>Device History</h1>
-        <p>See history of all devices activities</p>
+        {/* <p>See history of all devices activities</p> */}
       </header>
 
       <div className="toolbar-row">
         <input
           className="search-input"
-          placeholder="Search device name, user..."
+          placeholder="Search device, user, date or time..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-        />
-        <button
-          type="button"
-          className={`filter-box${showFilter ? ' filter-box-active' : ''}`}
-          title="Filter by status / action / device"
-          onClick={() => setShowFilter((s) => !s)}
-        >
-          <FaFilter />
-        </button>
-        <input
-          type="date"
-          className="filter-control"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
         />
         <select
           className="filter-control"
@@ -158,105 +184,88 @@ function ActionHistory() {
           <option value="desc">Latest</option>
           <option value="asc">Oldest</option>
         </select>
+        <label className="page-size-control">
+          Rows:
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={pageSizeInput}
+            onChange={(event) => setPageSizeInput(event.target.value)}
+          />
+        </label>
       </div>
 
-      {showFilter && (
-        <div className="filter-panel">
-          <div className="filter-panel-row">
-            <span className="filter-panel-label">Status:</span>
-            <div className="filter-chip-group">
-              {STATUS_CHIPS.map((chip) => (
-                <button
-                  key={chip.value}
-                  type="button"
-                  className={`filter-chip${statusFilter === chip.value ? ' filter-chip-active' : ''}`}
-                  onClick={() => setStatusFilter(chip.value)}
-                >
-                  {chip.label}
-                </button>
+      <div className="filter-panel">
+        <div className="filter-controls-row">
+          <label className="filter-select-control">
+            Status:
+            <select
+              className="filter-control"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              {STATUS_CHIPS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
               ))}
-            </div>
-          </div>
-          <div className="filter-panel-row">
-            <span className="filter-panel-label">Action:</span>
-            <div className="filter-chip-group">
-              {ACTION_CHIPS.map((chip) => (
-                <button
-                  key={chip.value}
-                  type="button"
-                  className={`filter-chip${actionFilter === chip.value ? ' filter-chip-active' : ''}`}
-                  onClick={() => setActionFilter(chip.value)}
-                >
-                  {chip.label}
-                </button>
+            </select>
+          </label>
+          <label className="filter-select-control">
+            Action:
+            <select
+              className="filter-control"
+              value={actionFilter}
+              onChange={(event) => setActionFilter(event.target.value)}
+            >
+              {ACTION_CHIPS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
               ))}
-            </div>
-          </div>
-          <div className="filter-panel-row">
-            <span className="filter-panel-label">Device:</span>
-            <div className="filter-chip-group">
-              {DEVICE_CHIPS.map((chip) => (
-                <button
-                  key={chip.value}
-                  type="button"
-                  className={`filter-chip${deviceFilter === chip.value ? ' filter-chip-active' : ''}`}
-                  onClick={() => setDeviceFilter(chip.value)}
-                >
-                  {chip.label}
-                </button>
+            </select>
+          </label>
+          <label className="filter-select-control">
+            Device:
+            <select
+              className="filter-control"
+              value={deviceFilter}
+              onChange={(event) => setDeviceFilter(event.target.value)}
+            >
+              {DEVICE_CHIPS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
               ))}
-            </div>
-          </div>
-          <div className="filter-panel-row">
-            <span className="filter-panel-label">Time:</span>
-            <div className="time-filter-row">
-              <input
-                className="time-input"
-                type="number"
-                min="1"
-                max="12"
-                placeholder="Hour"
-                value={timeHour}
-                onChange={(e) => setTimeHour(e.target.value)}
-              />
-              <span>:</span>
-              <input
-                className="time-input"
-                type="number"
-                min="0"
-                max="59"
-                placeholder="Minute"
-                value={timeMinute}
-                onChange={(e) => setTimeMinute(e.target.value)}
-              />
-              <span>:</span>
-              <input
-                className="time-input"
-                type="number"
-                min="0"
-                max="59"
-                placeholder="Second"
-                value={timeSecond}
-                onChange={(e) => setTimeSecond(e.target.value)}
-              />
-              <select
-                className="time-period"
-                value={timePeriod}
-                onChange={(e) => setTimePeriod(e.target.value)}
-              >
-                <option value="">AM/PM</option>
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
+            </select>
+          </label>
+          <label className="filter-select-control">
+            Time:
+            <select
+              className="time-period"
+              value={timePeriod}
+              onChange={(event) => setTimePeriod(event.target.value)}
+            >
+              <option value="">AM/PM</option>
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </label>
         </div>
-      )}
+      </div>
+
+      <div className="cta-row table-summary">
+        <span className="table-info">
+          Page {page}: showing {paginated.length} results (of {filtered.length})
+        </span>
+      </div>
 
       <div className="panel table-panel">
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Device</th>
               <th>User</th>
               <th>Action</th>
@@ -267,6 +276,7 @@ function ActionHistory() {
           <tbody>
             {paginated.map((item) => (
               <tr key={item.id}>
+                <td>{item.device_id}</td>
                 <td>{item.device_name}</td>
                 <td>
                   <span className="user-badge">{item.user_name || 'admin'}</span>
@@ -323,14 +333,25 @@ function ActionHistory() {
         >
           Next →
         </button>
+        <div className="go-to-page">
+          <label htmlFor="history-go-to-page">Go to Page:</label>
+          <input
+            id="history-go-to-page"
+            type="number"
+            min="1"
+            max={totalPages}
+            value={targetPage}
+            onChange={(event) => setTargetPage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') goToPage()
+            }}
+          />
+          <button type="button" className="page-btn" onClick={goToPage}>
+            Go
+          </button>
+        </div>
       </div>
 
-      <div className="cta-row">
-        <span className="table-info">{filtered.length} records · Page {page}/{totalPages}</span>
-        <button type="button" className="btn-export" onClick={exportCSV}>
-          Export CSV
-        </button>
-      </div>
     </section>
   )
 }

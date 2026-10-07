@@ -4,7 +4,7 @@
 - Frontend: React + Vite, đã triển khai 3 màn hình theo thiết kế Figma.
 - Backend: FastAPI, đã có đủ API theo PROJECT_CONTEXT.md.
 - Database: MySQL theo schema trong iot_humidity_light_tempurature_sensors.sql.
-- MQTT: dùng HiveMQ public broker, subscribe/publish theo topic chuẩn.
+- MQTT: dùng broker nội bộ tại `192.168.137.1:8888`, có username/password, subscribe/publish theo topic chuẩn.
 - Hardware: **ĐÃ HOẠT ĐỘNG THỰC TẾ** (cập nhật 2026-08-18).
 
 ## 2) Danh sách API và Công dụng chi tiết
@@ -50,7 +50,7 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
   1. Nhận yêu cầu trạng thái LED từ client.
   2. Ghi một bản ghi mới vào bảng `action_history` với trạng thái ban đầu là `pending`.
   3. Publish gói tin JSON điều khiển lên MQTT Topic `ptit/iot/device_control` để gửi tới ESP8266.
-  4. Kích hoạt tác vụ nền (`BackgroundTasks`) hẹn giờ 10 giây: nếu sau 10s không có phản hồi `success` từ phần cứng thì tự động đổi trạng thái bản ghi thành `timeout`.
+  4. Khi MQTT publish thành công, kích hoạt tác vụ nền hẹn giờ 5 giây: nếu không có phản hồi `success` từ phần cứng thì tự động đổi trạng thái bản ghi thành `timeout`.
 - **Request Body (JSON):**
   ```json
   {
@@ -104,7 +104,7 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
 - Cấu hình `DEMO_MODE=true` trong backend/.env.
 - Khi MQTT chưa kết nối:
   - API latest/history trả dữ liệu mô phỏng để demo UI.
-  - API control ghi lịch sử với status `pending`, sau 10 giây tự chuyển sang `timeout` nếu không có phản hồi phần cứng.
+  - API control ghi lịch sử với status `pending`; nếu MQTT đang hoạt động và không có phản hồi phần cứng, sau 5 giây sẽ chuyển sang `timeout`.
 - Dùng endpoint /api/system/status để biết có đang chạy demo hay không.
 
 ## 4) Frontend features đã có
@@ -117,14 +117,21 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
   - Đồng bộ trạng thái LED khi mount (gọi `GET /api/devices/status`) — toggle không bị reset khi chuyển trang.
   - **Toast notification:** cảnh báo slide-in top-right, tự dismiss sau 5s:
     - `"Sensor hardware not detected"` khi `mqtt_connected = false` (show 1 lần, reset khi reconnect).
-    - `"[LED Name] is not responding"` sau 10.5s khi bật/tắt LED mà MQTT không kết nối (khớp backend timeout).
+    - `"[LED Name] is not responding"` sau 5.5s khi bật/tắt LED nhưng phần cứng không phản hồi (khớp backend timeout).
     - `"Failed to send command"` khi API lỗi (kèm rollback toggle UI).
   - Banner báo đang chạy demo mode khi MQTT offline.
 - Sensor Data:
-  - Search text, filter ngày, sắp xếp mới/cũ.
+  - Main search theo tên sensor hoặc thời gian/ngày; ô `Search value...` tìm riêng giá trị đo.
+  - Cột Value hiển thị đơn vị theo loại sensor: `°C`, `%`, hoặc `ADC`.
+  - Filter sensor luôn hiển thị, sắp xếp mới/cũ và filter thời gian chỉ còn AM/PM.
+  - Date picker và nút mở filter đã được ẩn khỏi giao diện.
+  - CSV export hiện được comment để có thể bật lại sau.
   - **Tự động refresh mỗi 5 giây.**
 - Device History:
-  - Search text (theo tên thiết bị, tên user), filter ngày, sắp xếp mới/cũ.
+  - Search theo tên thiết bị, tên user hoặc thời gian (`HH:mm:ss` và `hh:mm:ss AM/PM`).
+  - Filter Status/Action/Device/AM-PM luôn hiển thị, sắp xếp mới/cũ.
+  - Date picker và nút mở filter đã được ẩn khỏi giao diện.
+  - CSV export hiện được comment để có thể bật lại sau.
   - **Tự động refresh mỗi 5 giây.**
   - Cột Device, **Cột User** (hiển thị tên người dùng thực hiện thao tác), Cột Action (On/Off), Cột Status với badge màu (success / timeout / pending) và Cột Time.
   - Export CSV bao gồm đầy đủ cột User.
@@ -154,7 +161,7 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
 ### Backend (.env)
 - DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 - DEMO_MODE (true/false)
-- MQTT_BROKER, MQTT_PORT
+- MQTT_BROKER, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD
 - MQTT_TOPIC_SENSOR, MQTT_TOPIC_CONTROL, MQTT_TOPIC_RESPONSE
 
 ### Frontend (.env)
@@ -179,4 +186,5 @@ Toàn bộ hệ thống hiện đang sử dụng **6 RESTful API** được xây
 ## 9) Gợi ý khi demo
 - Chưa có phần cứng: giữ `DEMO_MODE=true` để trình diễn UI và luồng filter/table/chart.
 - Khi có phần cứng thật: set `DEMO_MODE=false`, đảm bảo ESP publish đúng JSON/topic như PROJECT_CONTEXT.md.
-- Trạng thái action_history: `pending` (đang chờ) → `success`/`error` (phần cứng phản hồi) hoặc `timeout` (10s không phản hồi).
+- Backend phải dùng cùng broker, port và credentials MQTT với Arduino. Cấu hình hiện tại là `192.168.137.1:8888`.
+- Trạng thái action_history: `pending` (đang chờ) → `success`/`error` (phần cứng phản hồi) hoặc `timeout` (MQTT đã gửi nhưng 5s không có phản hồi).

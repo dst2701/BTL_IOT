@@ -1,30 +1,77 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaFilter } from 'react-icons/fa'
 import { fetchSensorHistory } from '../services/api'
 
-const PAGE_SIZE = 20
+const SENSOR_LABELS = {
+  DHT11_Temp: 'Temperature Sensor',
+  DHT11_Humid: 'Humidity Sensor',
+  LDR_Light: 'Light Sensor',
+}
+
+const SENSOR_UNITS = {
+  DHT11_Temp: '°C',
+  DHT11_Humid: '%',
+  LDR_Light: 'ADC',
+}
+
+const SENSOR_FILTERS = [
+  { value: 'all', label: 'All Sensors' },
+  { value: 'DHT11_Temp', label: 'Temperature' },
+  { value: 'DHT11_Humid', label: 'Humidity' },
+  { value: 'LDR_Light', label: 'Light' },
+]
+
+function getDateTimeSearchValues(value) {
+  const measuredAt = new Date(value)
+  const dateUS = measuredAt.toLocaleDateString('en-US')
+  const dateISO = [
+    measuredAt.getFullYear(),
+    String(measuredAt.getMonth() + 1).padStart(2, '0'),
+    String(measuredAt.getDate()).padStart(2, '0'),
+  ].join('-')
+  const time24 = measuredAt.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const time12 = measuredAt.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+  const time12Short = time12.replace(/^0/, '')
+
+  return [
+    dateUS,
+    dateISO,
+    time24,
+    time24.replace(/^0/, ''),
+    time12,
+    time12Short,
+    `${dateUS}, ${time24}`,
+    `${dateUS}, ${time24.replace(/^0/, '')}`,
+    `${dateUS}, ${time12}`,
+    `${dateUS}, ${time12Short}`,
+  ].map((item) => item.toLowerCase())
+}
 
 function DataSensor() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [valueQuery, setValueQuery] = useState('')
   const [order, setOrder] = useState('desc')
   const [sensorFilter, setSensorFilter] = useState('all')
-  const [timeHour, setTimeHour] = useState('')
-  const [timeMinute, setTimeMinute] = useState('')
-  const [timeSecond, setTimeSecond] = useState('')
   const [timePeriod, setTimePeriod] = useState('')
-  const [showFilter, setShowFilter] = useState(false)
   const [page, setPage] = useState(1)
+  const [targetPage, setTargetPage] = useState('')
+  const [pageSizeInput, setPageSizeInput] = useState('10')
+  const pageSize = Math.min(100, Math.max(1, Number(pageSizeInput) || 10))
 
   useEffect(() => {
     const load = async () => {
       try {
         const params = { limit: 500, order }
-        if (dateFilter) params.date = dateFilter
-        if (timeHour) params.hour = Number(timeHour)
-        if (timeMinute) params.minute = Number(timeMinute)
-        if (timeSecond) params.second = Number(timeSecond)
         if (timePeriod) params.period = timePeriod
         const data = await fetchSensorHistory(params)
         setRows(data)
@@ -35,12 +82,13 @@ function DataSensor() {
     load()
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
-  }, [dateFilter, order, timeHour, timeMinute, timeSecond, timePeriod])
+  }, [order, timePeriod])
 
   // Reset trang về 1 khi đổi filter
   useEffect(
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     () => setPage(1),
-    [query, dateFilter, order, sensorFilter, timeHour, timeMinute, timeSecond, timePeriod],
+    [query, valueQuery, order, sensorFilter, timePeriod, pageSizeInput],
   )
 
   const filtered = useMemo(() => {
@@ -50,15 +98,36 @@ function DataSensor() {
     }
     const normalized = query.toLowerCase().trim()
     if (normalized) {
-      result = result.filter((item) =>
-        item.sensor_name.toLowerCase().includes(normalized),
-      )
+      result = result.filter((item) => {
+        const sensorName = item.sensor_name?.toLowerCase() || ''
+        const uiSensorName = SENSOR_LABELS[item.sensor_type]?.toLowerCase() || ''
+        const timeValues = getDateTimeSearchValues(item.measured_at)
+        return (
+          sensorName.includes(normalized) ||
+          uiSensorName.includes(normalized) ||
+          timeValues.some((value) => value.includes(normalized))
+        )
+      })
     }
     return result
   }, [rows, query, sensorFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const valueFiltered = useMemo(() => {
+    const normalized = valueQuery.toLowerCase().trim()
+    if (!normalized) return filtered
+
+    return filtered.filter((item) =>
+      String(item.value).toLowerCase().includes(normalized),
+    )
+  }, [filtered, valueQuery])
+
+  const getSensorLabel = (item) =>
+    SENSOR_LABELS[item.sensor_type] || item.sensor_name || 'Sensor'
+
+  const getSensorUnit = (item) => SENSOR_UNITS[item.sensor_type] || ''
+
+  const totalPages = Math.max(1, Math.ceil(valueFiltered.length / pageSize))
+  const paginated = valueFiltered.slice((page - 1) * pageSize, page * pageSize)
 
   const visiblePages = () => {
     const delta = 2
@@ -67,11 +136,20 @@ function DataSensor() {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }
 
+  const goToPage = () => {
+    const requestedPage = Number(targetPage)
+    if (!Number.isInteger(requestedPage) || requestedPage < 1) return
+
+    setPage(Math.min(requestedPage, totalPages))
+    setTargetPage('')
+  }
+
+  // eslint-disable-next-line no-unused-vars
   const exportCSV = () => {
     const header = 'Sensor,Type,Value,Time'
-    const csvRows = filtered.map((item) =>
+    const csvRows = valueFiltered.map((item) =>
       [
-        `"${item.sensor_name}"`,
+        `"${getSensorLabel(item)}"`,
         item.sensor_type,
         Number(item.value).toFixed(1),
         `"${new Date(item.measured_at).toLocaleString()}"`,
@@ -90,97 +168,64 @@ function DataSensor() {
     URL.revokeObjectURL(url)
   }
 
-  const SENSOR_CHIPS = [
-    { value: 'all', label: 'All' },
-    { value: 'DHT11_Temp', label: '🌡 Temperature' },
-    { value: 'DHT11_Humid', label: '💧 Humidity' },
-    { value: 'LDR_Light', label: '☀️ Light' },
-  ]
-
   return (
-    <section>
+    <section className="data-page">
       <header className="page-title">
         <h1>Sensor Data</h1>
-        <p>All sensor readings history</p>
+        {/* <p>All sensor readings history</p> */}
       </header>
 
       <div className="toolbar-row">
         <input
           className="search-input"
-          placeholder="Search sensor name..."
+          placeholder="Search sensor, date or time..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button
-          type="button"
-          className={`filter-box${showFilter ? ' filter-box-active' : ''}`}
-          title="Filter by sensor type"
-          onClick={() => setShowFilter((s) => !s)}
-        >
-          <FaFilter />
-        </button>
         <input
-          type="date"
-          className="filter-control"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
+          className="search-input value-search-input"
+          placeholder="Search value..."
+          value={valueQuery}
+          onChange={(e) => setValueQuery(e.target.value)}
         />
         <select
           className="filter-control"
           value={order}
           onChange={(e) => setOrder(e.target.value)}
         >
-          <option value="desc">Mới nhất</option>
-          <option value="asc">Cũ nhất</option>
+          <option value="desc">Latest</option>
+          <option value="asc">Oldest</option>
         </select>
+        <label className="page-size-control">
+          Rows:
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={pageSizeInput}
+            onChange={(event) => setPageSizeInput(event.target.value)}
+          />
+        </label>
       </div>
 
-      {showFilter && (
-        <div className="filter-panel">
-          <span className="filter-panel-label">Sensor:</span>
-          <div className="filter-chip-group">
-            {SENSOR_CHIPS.map((chip) => (
-              <button
-                key={chip.value}
-                type="button"
-                className={`filter-chip${sensorFilter === chip.value ? ' filter-chip-active' : ''}`}
-                onClick={() => setSensorFilter(chip.value)}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-          <div className="filter-panel-row time-filter-row">
-            <span className="filter-panel-label">Time:</span>
-            <input
-              className="time-input"
-              type="number"
-              min="1"
-              max="12"
-              placeholder="Hour"
-              value={timeHour}
-              onChange={(e) => setTimeHour(e.target.value)}
-            />
-            <span>:</span>
-            <input
-              className="time-input"
-              type="number"
-              min="0"
-              max="59"
-              placeholder="Minute"
-              value={timeMinute}
-              onChange={(e) => setTimeMinute(e.target.value)}
-            />
-            <span>:</span>
-            <input
-              className="time-input"
-              type="number"
-              min="0"
-              max="59"
-              placeholder="Second"
-              value={timeSecond}
-              onChange={(e) => setTimeSecond(e.target.value)}
-            />
+      <div className="filter-panel">
+        <div className="filter-controls-row">
+          <label className="filter-select-control">
+            Sensor:
+            <select
+              className="filter-control"
+              value={sensorFilter}
+              onChange={(event) => setSensorFilter(event.target.value)}
+            >
+              {SENSOR_FILTERS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-select-control">
+            Time:
             <select
               className="time-period"
               value={timePeriod}
@@ -190,14 +235,21 @@ function DataSensor() {
               <option value="AM">AM</option>
               <option value="PM">PM</option>
             </select>
-          </div>
+          </label>
         </div>
-      )}
+      </div>
+
+      <div className="cta-row table-summary">
+        <span className="table-info">
+          Page {page}: showing {paginated.length} results (of {valueFiltered.length})
+        </span>
+      </div>
 
       <div className="panel table-panel">
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Sensor</th>
               <th>Value</th>
               <th>Time</th>
@@ -206,8 +258,11 @@ function DataSensor() {
           <tbody>
             {paginated.map((item) => (
               <tr key={item.id}>
-                <td>{item.sensor_name}</td>
-                <td>{Number(item.value).toFixed(1)}</td>
+                <td>{item.sensor_id}</td>
+                <td>{getSensorLabel(item)}</td>
+                <td>
+                  {Number(item.value).toFixed(1)} {getSensorUnit(item)}
+                </td>
                 <td>{new Date(item.measured_at).toLocaleString()}</td>
               </tr>
             ))}
@@ -254,14 +309,25 @@ function DataSensor() {
         >
           Next →
         </button>
+        <div className="go-to-page">
+          <label htmlFor="sensor-go-to-page">Go to Page:</label>
+          <input
+            id="sensor-go-to-page"
+            type="number"
+            min="1"
+            max={totalPages}
+            value={targetPage}
+            onChange={(event) => setTargetPage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') goToPage()
+            }}
+          />
+          <button type="button" className="page-btn" onClick={goToPage}>
+            Go
+          </button>
+        </div>
       </div>
 
-      <div className="cta-row">
-        <span className="table-info">{filtered.length} records · Page {page}/{totalPages}</span>
-        <button type="button" className="btn-export" onClick={exportCSV}>
-          Export CSV
-        </button>
-      </div>
     </section>
   )
 }
