@@ -67,6 +67,7 @@ function Profile() {
       </div>
 
       {/* ── Main card ── */}
+      <div className="profile-layout">
       <div className="profile-card">
         {/* Avatar */}
         <div className="profile-avatar-wrap">
@@ -115,7 +116,8 @@ function Profile() {
       </div>
 
       {/* ── Links grid ── */}
-      <div className="profile-links-title">Links & Resources</div>
+      <aside className="profile-resources">
+      <h2 className="profile-links-title">Links & Resources</h2>
       <div className="profile-links">
         {LINKS.map((link) => (
           <a
@@ -135,6 +137,8 @@ function Profile() {
             {!link.url && <span className="profile-link-soon">Coming soon</span>}
           </a>
         ))}
+      </div>
+      </aside>
       </div>
     </section>
   )

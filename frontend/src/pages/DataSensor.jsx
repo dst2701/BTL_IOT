@@ -18,6 +18,7 @@ const SENSOR_FILTERS = [
   { value: 'DHT11_Temp', label: 'Temperature' },
   { value: 'DHT11_Humid', label: 'Humidity' },
   { value: 'LDR_Light', label: 'Light' },
+  { value: 'time', label: 'Time' },
 ]
 
 function getDateTimeSearchValues(value) {
@@ -59,10 +60,9 @@ function getDateTimeSearchValues(value) {
 function DataSensor() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
-  const [valueQuery, setValueQuery] = useState('')
   const [order, setOrder] = useState('desc')
   const [sensorFilter, setSensorFilter] = useState('all')
-  const [timePeriod, setTimePeriod] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState({ query: '', by: 'all' })
   const [page, setPage] = useState(1)
   const [targetPage, setTargetPage] = useState('')
   const [pageSizeInput, setPageSizeInput] = useState('10')
@@ -72,7 +72,6 @@ function DataSensor() {
     const load = async () => {
       try {
         const params = { limit: 500, order }
-        if (timePeriod) params.period = timePeriod
         const data = await fetchSensorHistory(params)
         setRows(data)
       } catch (error) {
@@ -82,52 +81,45 @@ function DataSensor() {
     load()
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
-  }, [order, timePeriod])
+  }, [order])
 
   // Reset trang về 1 khi đổi filter
   useEffect(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     () => setPage(1),
-    [query, valueQuery, order, sensorFilter, timePeriod, pageSizeInput],
+    [appliedSearch, order, pageSizeInput],
   )
 
   const filtered = useMemo(() => {
+    const normalized = appliedSearch.query.toLowerCase().trim()
+    if (!normalized) return rows
+    const searchBy = appliedSearch.by
     let result = rows
-    if (sensorFilter !== 'all') {
-      result = result.filter((item) => item.sensor_type === sensorFilter)
+    if (searchBy !== 'all' && searchBy !== 'time') {
+      result = result.filter((item) => item.sensor_type === searchBy)
     }
-    const normalized = query.toLowerCase().trim()
     if (normalized) {
       result = result.filter((item) => {
         const sensorName = item.sensor_name?.toLowerCase() || ''
         const uiSensorName = SENSOR_LABELS[item.sensor_type]?.toLowerCase() || ''
         const timeValues = getDateTimeSearchValues(item.measured_at)
-        return (
-          sensorName.includes(normalized) ||
-          uiSensorName.includes(normalized) ||
-          timeValues.some((value) => value.includes(normalized))
-        )
+        if (searchBy === 'time') return timeValues.some((value) => value.includes(normalized))
+        const valueMatches = [String(item.value), Number(item.value).toFixed(1)]
+          .some((value) => value.toLowerCase().includes(normalized))
+        if (searchBy !== 'all') return valueMatches
+        return sensorName.includes(normalized) || uiSensorName.includes(normalized) || valueMatches
       })
     }
     return result
-  }, [rows, query, sensorFilter])
-
-  const valueFiltered = useMemo(() => {
-    const normalized = valueQuery.toLowerCase().trim()
-    if (!normalized) return filtered
-
-    return filtered.filter((item) =>
-      String(item.value).toLowerCase().includes(normalized),
-    )
-  }, [filtered, valueQuery])
+  }, [rows, appliedSearch])
 
   const getSensorLabel = (item) =>
     SENSOR_LABELS[item.sensor_type] || item.sensor_name || 'Sensor'
 
   const getSensorUnit = (item) => SENSOR_UNITS[item.sensor_type] || ''
 
-  const totalPages = Math.max(1, Math.ceil(valueFiltered.length / pageSize))
-  const paginated = valueFiltered.slice((page - 1) * pageSize, page * pageSize)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   const visiblePages = () => {
     const delta = 2
@@ -144,10 +136,9 @@ function DataSensor() {
     setTargetPage('')
   }
 
-  // eslint-disable-next-line no-unused-vars
   const exportCSV = () => {
     const header = 'Sensor,Type,Value,Time'
-    const csvRows = valueFiltered.map((item) =>
+    const csvRows = filtered.map((item) =>
       [
         `"${getSensorLabel(item)}"`,
         item.sensor_type,
@@ -170,48 +161,24 @@ function DataSensor() {
 
   return (
     <section className="data-page">
-      <header className="page-title">
+      <header className="page-title history-title">
         <h1>Sensor Data</h1>
         {/* <p>All sensor readings history</p> */}
       </header>
 
-      <div className="toolbar-row">
-        <input
-          className="search-input"
-          placeholder="Search sensor, date or time..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <input
-          className="search-input value-search-input"
-          placeholder="Search value..."
-          value={valueQuery}
-          onChange={(e) => setValueQuery(e.target.value)}
-        />
-        <select
-          className="filter-control"
-          value={order}
-          onChange={(e) => setOrder(e.target.value)}
-        >
-          <option value="desc">Latest</option>
-          <option value="asc">Oldest</option>
-        </select>
-        <label className="page-size-control">
-          Rows:
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={pageSizeInput}
-            onChange={(event) => setPageSizeInput(event.target.value)}
-          />
-        </label>
-      </div>
-
       <div className="filter-panel">
         <div className="filter-controls-row">
+          <input className="search-input" aria-label="Search records"
+            placeholder={sensorFilter === 'time' ? 'Search date or time...' : sensorFilter === 'all' ? 'Search name or value...' : 'Search value...'} value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                setAppliedSearch({ query, by: sensorFilter })
+                setPage(1)
+              }
+            }} />
           <label className="filter-select-control">
-            Sensor:
+            Search by:
             <select
               className="filter-control"
               value={sensorFilter}
@@ -224,24 +191,20 @@ function DataSensor() {
               ))}
             </select>
           </label>
-          <label className="filter-select-control">
-            Time:
-            <select
-              className="time-period"
-              value={timePeriod}
-              onChange={(e) => setTimePeriod(e.target.value)}
-            >
-              <option value="">AM/PM</option>
-              <option value="AM">AM</option>
-              <option value="PM">PM</option>
-            </select>
-          </label>
+        <select
+          className="filter-control order-select" aria-label="Sort by time"
+          value={order}
+          onChange={(e) => setOrder(e.target.value)}
+        >
+          <option value="desc">Latest</option>
+          <option value="asc">Oldest</option>
+        </select>
         </div>
       </div>
 
       <div className="cta-row table-summary">
         <span className="table-info">
-          Page {page}: showing {paginated.length} results (of {valueFiltered.length})
+          Page {page}: showing {paginated.length} results (of {filtered.length})
         </span>
       </div>
 
@@ -270,6 +233,17 @@ function DataSensor() {
         </table>
       </div>
 
+      <div className="table-footer">
+        <label className="page-size-control">
+          Rows:
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={pageSizeInput}
+            onChange={(event) => setPageSizeInput(event.target.value)}
+          />
+        </label>
       <div className="pagination">
         <button
           type="button"
@@ -328,6 +302,12 @@ function DataSensor() {
         </div>
       </div>
 
+      </div>
+      <div className="table-export-row">
+        <button type="button" className="btn-export" onClick={exportCSV}>
+          Export CSV
+        </button>
+      </div>
     </section>
   )
 }

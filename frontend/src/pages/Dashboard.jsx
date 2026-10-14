@@ -13,6 +13,8 @@ import {
   fetchSystemStatus,
 } from '../services/api'
 
+const LED_DEMO = false // Đổi thành false khi dùng phần cứng
+
 const LED_LABELS = {
   led1: 'Red Led',
   led2: 'Yellow Led',
@@ -24,6 +26,8 @@ const LED_ICONS = {
   led2: <FiPower />,
   led3: <FiPower />,
 }
+
+const LED_COLORS = { led1: '#ef4444', led2: '#eab308', led3: '#22c55e' }
 
 const CHART_OPTIONS = [
   { key: 'temp',     label: 'Temperature', unit: 'degC', color: '#ff6b6b' },
@@ -40,7 +44,6 @@ function Dashboard() {
   const [humiditySeries, setHumiditySeries] = useState([])
   const [lightSeries, setLightSeries] = useState([])
   const [systemStatus, setSystemStatus] = useState({ mqtt_connected: true, demo_mode: false })
-  const [selectedChart, setSelectedChart] = useState('temp')
 
   // Tránh show duplicate sensor warning
   const sensorWarningRef = useRef(false)
@@ -52,7 +55,7 @@ function Dashboard() {
     const toSeries = (data) =>
       [...data].reverse().map((item) => ({
         value: Number(item.value),
-        time: new Date(item.measured_at).getHours().toString().padStart(2, '0'),
+        time: new Date(item.measured_at).getTime(),
       }))
 
     const load = async () => {
@@ -103,6 +106,7 @@ function Dashboard() {
     }
 
     const loadDeviceStatus = async () => {
+      if (LED_DEMO) return
       try {
         const status = await fetchDeviceStatus()
         setLedState((prev) => ({ ...prev, ...status }))
@@ -149,6 +153,10 @@ function Dashboard() {
 
   // ── LED toggle ───────────────────────────────────────────────
   const handleToggle = useCallback(async (key) => {
+    if (LED_DEMO) {
+      setLedState((prev) => ({ ...prev, [key]: !prev[key] }))
+      return
+    }
     if (!['led1', 'led2', 'led3'].includes(key)) {
       setLedState((prev) => ({ ...prev, [key]: !prev[key] }))
       return
@@ -193,7 +201,7 @@ function Dashboard() {
 
   // ── Render ───────────────────────────────────────────────────
   const seriesMap = { temp: tempSeries, humidity: humiditySeries, light: lightSeries }
-  const activeChart = CHART_OPTIONS.find((o) => o.key === selectedChart)
+  const chartSeries = CHART_OPTIONS.map((option) => ({ ...option, values: seriesMap[option.key] }))
 
   return (
     <section>
@@ -224,12 +232,15 @@ function Dashboard() {
         {Object.entries(ledState).map(([key, value]) => (
           <article key={key} className="panel toggle-card">
             <span className="led-label">
-              <span className="led-icon">{LED_ICONS[key]}</span>
+              <span className={`led-icon${value ? ' led-icon-on' : ''}`} style={{ '--led-color': LED_COLORS[key] }}>{LED_ICONS[key]}</span>
               {LED_LABELS[key] || key}
             </span>
             <button
               type="button"
               className={value ? 'switch switch-on' : 'switch'}
+              role="switch"
+              aria-checked={value}
+              aria-label={LED_LABELS[key]}
               onClick={() => handleToggle(key)}
             >
               <span className="switch-dot" />
@@ -238,27 +249,8 @@ function Dashboard() {
         ))}
       </div>
 
-      <div className="panel chart-panel">
-        <div className="chart-header">
-          <select
-            className="chart-select"
-            value={selectedChart}
-            onChange={(e) => setSelectedChart(e.target.value)}
-          >
-            {CHART_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <SensorChart
-          values={seriesMap[selectedChart]}
-          label={`${activeChart.label} (${activeChart.unit})`}
-          title=""
-          color={activeChart.color}
-        />
-      </div>
+      <SensorChart series={chartSeries} title="Sensor readings" />
+
     </section>
   )
 }

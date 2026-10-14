@@ -60,11 +60,11 @@ function getDateTimeSearchValues(value) {
 function ActionHistory() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
+  const [searchBy, setSearchBy] = useState('name')
   const [order, setOrder] = useState('desc')
   const [statusFilter, setStatusFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
   const [deviceFilter, setDeviceFilter] = useState('all')
-  const [timePeriod, setTimePeriod] = useState('')
   const [page, setPage] = useState(1)
   const [targetPage, setTargetPage] = useState('')
   const [pageSizeInput, setPageSizeInput] = useState('10')
@@ -74,7 +74,6 @@ function ActionHistory() {
     const load = async () => {
       try {
         const params = { limit: 500, order }
-        if (timePeriod) params.period = timePeriod
         const data = await fetchActionHistory(params)
         setRows(data)
       } catch (error) {
@@ -84,13 +83,13 @@ function ActionHistory() {
     load()
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
-  }, [order, timePeriod])
+  }, [order])
 
   // Reset trang về 1 khi đổi filter
   useEffect(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     () => setPage(1),
-    [query, order, statusFilter, actionFilter, deviceFilter, timePeriod, pageSizeInput],
+    [query, searchBy, order, statusFilter, actionFilter, deviceFilter, pageSizeInput],
   )
 
   const filtered = useMemo(() => {
@@ -106,17 +105,15 @@ function ActionHistory() {
     }
     const normalized = query.toLowerCase().trim()
     if (normalized) {
-      result = result.filter(
-        (item) =>
-          (item.device_name && item.device_name.toLowerCase().includes(normalized)) ||
-          (item.user_name && item.user_name.toLowerCase().includes(normalized)) ||
-          getDateTimeSearchValues(item.created_at).some((value) =>
-            value.includes(normalized),
-          ),
-      )
+      result = result.filter((item) => {
+        if (searchBy === 'time') return getDateTimeSearchValues(item.created_at).some((value) => value.includes(normalized))
+        if (searchBy === 'value') return String(item.action).toLowerCase().includes(normalized)
+        return (item.device_name || '').toLowerCase().includes(normalized) ||
+          (item.user_name || 'admin').toLowerCase().includes(normalized)
+      })
     }
     return result
-  }, [rows, query, statusFilter, actionFilter, deviceFilter])
+  }, [rows, query, searchBy, statusFilter, actionFilter, deviceFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -136,7 +133,6 @@ function ActionHistory() {
     setTargetPage('')
   }
 
-  // eslint-disable-next-line no-unused-vars
   const exportCSV = () => {
     const header = 'Device,User,Type,Action,Status,Time'
     const csvRows = filtered.map((item) =>
@@ -164,40 +160,32 @@ function ActionHistory() {
 
   return (
     <section className="history-page">
-      <header className="page-title">
+      <header className="page-title history-title">
         <h1>Device History</h1>
         {/* <p>See history of all devices activities</p> */}
       </header>
 
-      <div className="toolbar-row">
-        <input
-          className="search-input"
-          placeholder="Search device, user, date or time..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+      <div className="filter-panel">
+        <div className="filter-controls-row">
+          <input className="search-input" aria-label="Search records"
+            placeholder={searchBy === 'time' ? 'Search date or time...' : searchBy === 'value' ? 'Search On / Off...' : 'Search device or user...'} value={query}
+            onChange={(event) => setQuery(event.target.value)} />
+          <label className="filter-select-control">
+            Search by:
+            <select className="filter-control" value={searchBy} onChange={(event) => setSearchBy(event.target.value)}>
+              <option value="name">Name</option>
+              <option value="value">Value</option>
+              <option value="time">Time</option>
+            </select>
+          </label>
         <select
-          className="filter-control"
+          className="filter-control order-select" aria-label="Sort by time"
           value={order}
           onChange={(e) => setOrder(e.target.value)}
         >
           <option value="desc">Latest</option>
           <option value="asc">Oldest</option>
         </select>
-        <label className="page-size-control">
-          Rows:
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={pageSizeInput}
-            onChange={(event) => setPageSizeInput(event.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="filter-panel">
-        <div className="filter-controls-row">
           <label className="filter-select-control">
             Status:
             <select
@@ -238,18 +226,6 @@ function ActionHistory() {
                   {filter.label}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="filter-select-control">
-            Time:
-            <select
-              className="time-period"
-              value={timePeriod}
-              onChange={(event) => setTimePeriod(event.target.value)}
-            >
-              <option value="">AM/PM</option>
-              <option value="AM">AM</option>
-              <option value="PM">PM</option>
             </select>
           </label>
         </div>
@@ -294,6 +270,17 @@ function ActionHistory() {
         </table>
       </div>
 
+      <div className="table-footer">
+        <label className="page-size-control">
+          Rows:
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={pageSizeInput}
+            onChange={(event) => setPageSizeInput(event.target.value)}
+          />
+        </label>
       <div className="pagination">
         <button
           type="button"
@@ -352,6 +339,12 @@ function ActionHistory() {
         </div>
       </div>
 
+      </div>
+      <div className="table-export-row">
+        <button type="button" className="btn-export" onClick={exportCSV}>
+          Export CSV
+        </button>
+      </div>
     </section>
   )
 }
